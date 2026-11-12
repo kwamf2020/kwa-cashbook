@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KWA Cash Book Management</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen p-6">
@@ -26,7 +25,7 @@
     <h2 class="text-md font-bold text-[#004080] border-b pb-2 mb-4">Record Transaction Entry</h2>
     
     <form id="txnForm" onsubmit="handleFormSubmit(event)">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Date *</label>
           <input type="text" id="date" placeholder="dd-mm-yyyy" required 
@@ -43,9 +42,6 @@
           <label class="block text-xs font-semibold text-slate-600 mb-1">Serial No *</label>
           <input type="text" id="serialNo" required class="w-full px-3 py-2 border rounded text-sm">
         </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Category *</label>
           <select id="category" required class="w-full px-3 py-2 border rounded text-sm bg-white">
@@ -54,6 +50,9 @@
             <option value="Non Operative">Non Operative Account</option>
           </select>
         </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Bank Nickname *</label>
           <select id="bankNickname" class="w-full px-3 py-2 border rounded text-sm bg-white">
@@ -64,66 +63,178 @@
           <label class="block text-xs font-semibold text-slate-600 mb-1">Party Name / Payee</label>
           <input type="text" id="partyName" placeholder="e.g. Contractor / Firm" class="w-full px-3 py-2 border rounded text-sm">
         </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Description / Remarks</label>
+          <input type="text" id="description" placeholder="Voucher remarks" class="w-full px-3 py-2 border rounded text-sm">
+        </div>
       </div>
 
-      <button type="submit" class="bg-[#003366] hover:bg-[#002244] text-white px-4 py-2 rounded text-sm font-semibold transition">
+      <!-- Line Items Section -->
+      <div class="border border-slate-200 rounded p-4 bg-slate-50 mb-4">
+        <h3 class="text-xs font-bold uppercase text-[#004080] mb-3">Ledger Line Items</h3>
+        <table class="w-full border-collapse mb-3">
+          <thead>
+            <tr class="text-xs bg-slate-200 text-slate-700">
+              <th class="p-2 text-left w-1/4">Account Code *</th>
+              <th class="p-2 text-left">Particulars *</th>
+              <th class="p-2 text-right w-1/5">Amount (₹) *</th>
+              <th class="p-2 text-center w-16">Action</th>
+            </tr>
+          </thead>
+          <tbody id="itemsRows"></tbody>
+        </table>
+        <button type="button" onclick="addItemRow()" class="bg-sky-500 hover:bg-sky-600 text-white text-xs px-3 py-1.5 rounded font-semibold">
+          + Add Item Row
+        </button>
+      </div>
+
+      <button type="submit" id="saveBtn" class="bg-[#003366] hover:bg-[#002244] text-white px-5 py-2 rounded text-sm font-semibold transition">
         Save Entry
       </button>
     </form>
   </div>
 
   <script>
-    // Supabase Configuration (Use same keys as app.js)
     const SUPABASE_URL = 'https://nayvftqylbjwspmjxbjc.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_qGT19bz8IOnF4-vWCbk4aQ_UCcaBc9U';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let masterAccountCodes = [];
     let masterBanks = [];
+    let currentOfficeId = '';
 
-    // 1. Secure Access Check & Master Data Loading on Load
     window.onload = async function() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) {
         window.location.href = 'login.html';
         return;
       }
+      currentOfficeId = session.user.id;
 
-      // Set default date to today (dd-mm-yyyy)
+      // Set default date (dd/mm/yyyy matching sample data)
       const now = new Date();
       const dd = String(now.getDate()).padStart(2, '0');
       const mm = String(now.getMonth() + 1).padStart(2, '0');
       const yyyy = now.getFullYear();
-      document.getElementById('date').value = `${dd}-${mm}-${yyyy}`;
+      document.getElementById('date').value = `${dd}/${mm}/${yyyy}`;
 
-      await loadMasters(session.user.id);
+      await loadMasters();
+      addItemRow(); // Add initial blank row
     };
 
-    // 2. Fetch Account Codes and Office Banks from Supabase
-    async function loadMasters(officeId) {
-      // Load global account codes
-      const { data: codesData, error: codesErr } = await supabaseClient.from('account_codes_master').select('*');
-      if (!codesErr) masterAccountCodes = codesData || [];
+    async function loadMasters() {
+      const { data: codesData } = await supabaseClient.from('account_codes_master').select('*');
+      masterAccountCodes = codesData || [];
 
-      // Load office-specific bank master data
-      const { data: banksData, error: banksErr } = await supabaseClient.from('bank_master').select('*').eq('office_id', officeId);
-      if (!banksErr) {
-        masterBanks = banksData || [];
-        const bankSelect = document.getElementById('bankNickname');
-        masterBanks.forEach(b => {
-          bankSelect.innerHTML += `<option value="${b.account_nickname}">${b.account_nickname} (${b.category})</option>`;
-        });
+      const { data: banksData } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
+      masterBanks = banksData || [];
+      const bankSelect = document.getElementById('bankNickname');
+      masterBanks.forEach(b => {
+        bankSelect.innerHTML += `<option value="${b.account_nickname}">${b.account_nickname}</option>`;
+      });
+    }
+
+    function addItemRow(code = '', particulars = '', amount = '') {
+      const tbody = document.getElementById('itemsRows');
+      const rowId = 'row_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+      let codeOptions = '<option value="">Select Code</option>';
+      masterAccountCodes.forEach(ac => {
+        const sel = String(ac.account_code) === String(code) ? 'selected' : '';
+        codeOptions += `<option value="${ac.account_code}" ${sel}>${ac.account_code} - ${ac.particulars}</option>`;
+      });
+
+      const tr = document.createElement('tr');
+      tr.id = rowId;
+      tr.className = "border-b bg-white";
+      tr.innerHTML = `
+        <td class="p-2"><select class="item-code w-full p-1 border rounded text-xs" onchange="autoFillParticulars('${rowId}')">${codeOptions}</select></td>
+        <td class="p-2"><input type="text" class="item-particulars w-full p-1 border rounded text-xs" value="${particulars}" placeholder="Description"></td>
+        <td class="p-2"><input type="number" step="0.01" class="item-amount w-full p-1 border rounded text-xs text-right" value="${amount}" placeholder="0.00"></td>
+        <td class="p-2 text-center"><button type="button" onclick="document.getElementById('${rowId}').remove()" class="bg-red-500 text-white px-2 py-1 rounded text-xs">✕</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function autoFillParticulars(rowId) {
+      const row = document.getElementById(rowId);
+      const codeVal = row.querySelector('.item-code').value;
+      const partInput = row.querySelector('.item-particulars');
+      const match = masterAccountCodes.find(ac => String(ac.account_code) === String(codeVal));
+      if (match) partInput.value = match.particulars;
+    }
+
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+
+      const dateStr = document.getElementById('date').value;
+      const type = document.getElementById('type').value;
+      const serialNo = document.getElementById('serialNo').value;
+      const category = document.getElementById('category').value;
+      const bankNickname = document.getElementById('bankNickname').value;
+      const partyName = document.getElementById('partyName').value;
+      const description = document.getElementById('description').value;
+
+      // Gather line items
+      const rows = document.querySelectorAll('#itemsRows tr');
+      const items = [];
+      rows.forEach(r => {
+        const code = r.querySelector('.item-code').value;
+        const part = r.querySelector('.item-particulars').value;
+        const amt = r.querySelector('.item-amount').value;
+        if (code && part && amt) {
+          items.push({ code, part, amt });
+        }
+      });
+
+      if (items.length === 0) {
+        alert('Please add at least one line item.');
+        return;
+      }
+
+      // Format Month_Year e.g., 'Oct-26'
+      const parts = dateStr.split('/');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthYear = `${months[parseInt(parts[1], 10) - 1]}-${parts[2].slice(-2)}`;
+
+      const timestamp = Date.now();
+      const rowsToInsert = items.map((item, index) => ({
+        txn_id: `TXN-${timestamp}-${index + 1}`,
+        office_id: currentOfficeId,
+        date: dateStr,
+        month_year: monthYear,
+        type: type,
+        serial_no: serialNo,
+        linked_cbv: null,
+        account_code: item.code,
+        particulars: item.part,
+        party_name: partyName,
+        description: description,
+        bank_nickname: bankNickname,
+        category: category,
+        receipt_subtype: type === 'Receipt' ? 'Direct Bank' : null,
+        cheque_no: '',
+        amount: parseFloat(item.amt),
+        brs_status: 'Pending',
+        clearance_date: '',
+        gst_amount: 0
+      }));
+
+      const { error } = await supabaseClient.from('transactions').insert(rowsToInsert);
+
+      if (error) {
+        alert('Error saving transaction: ' + error.message);
+      } else {
+        alert('Transaction saved successfully to Supabase!');
+        document.getElementById('txnForm').reset();
+        document.getElementById('itemsRows').innerHTML = '';
+        addItemRow();
       }
     }
 
     async function logout() {
       await supabaseClient.auth.signOut();
       window.location.href = 'login.html';
-    }
-
-    function handleFormSubmit(e) {
-      e.preventDefault();
-      alert('Form structure ready! We will connect the save logic next.');
     }
   </script>
 </body>
