@@ -9,6 +9,8 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- SheetJS for Excel Generation -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   
   <style>
     :root {
@@ -33,7 +35,6 @@
     .btn-logout { background-color: #dc2626; border-color: #b91c1c; }
     .btn-logout:hover { background-color: #b91c1c; }
 
-    /* Top Action Bar */
     .top-action-bar { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     
     .card { background: var(--card-bg); padding: 24px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1); margin-bottom: 24px; border: 1px solid var(--border-color); }
@@ -162,7 +163,6 @@
     <form id="txnForm" onsubmit="handleFormSubmit(event)">
       <input type="hidden" id="editingMode" value="false">
 
-      <!-- TRANSACTION MODE SELECTION -->
       <div class="grid-form" style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 20px;">
         <div class="form-group" style="grid-column: span 2;">
           <label>Entry Mode *</label>
@@ -227,7 +227,6 @@
           <label>General Description / Voucher Remarks</label>
           <input type="text" id="description" placeholder="e.g. General description of transaction">
         </div>
-        <!-- GST AMOUNT FIELD (Visible only for Payments) -->
         <div class="form-group" id="gstGroup" style="display: none;">
           <label>GST Amount (₹) [Optional]</label>
           <input type="number" id="gstAmount" step="0.01" placeholder="0.00">
@@ -293,6 +292,13 @@
   <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
       <h3 style="border: none; margin: 0;">Cash Book Transaction Ledger</h3>
+      
+      <div class="top-action-bar" style="margin-bottom: 0;">
+        <button class="btn btn-pdf" onclick="exportCb27Pdf()">📄 Export CB27 PDF</button>
+        <button class="btn btn-excel" onclick="exportCb27Excel()">📊 Export CB27 Excel</button>
+        <button class="btn btn-cb28" onclick="exportCb28Pdf()">📄 Export CB28 PDF</button>
+        <button class="btn btn-excel" onclick="exportDoubleSideExcel()">📊 Double-Side Excel</button>
+      </div>
     </div>
 
     <div class="filter-controls-left">
@@ -310,7 +316,6 @@
             <th colspan="9" style="text-align: center; background-color: #334155; color: #ffffff; font-size: 11px; letter-spacing: 0.5px;">PAYMENTS SIDE (CBV)</th>
           </tr>
           <tr>
-            <!-- Receipts Headers -->
             <th style="width: 6.5%;">Date</th>
             <th style="width: 6.5%;">CBR No</th>
             <th style="width: 4%;">Code</th>
@@ -320,10 +325,8 @@
             <th class="num" style="width: 4.5%;">Non Oper.</th>
             <th style="width: 4.5%;" class="center">Action</th>
             
-            <!-- Separator Header -->
             <th class="table-separator"></th>
 
-            <!-- Payments Headers -->
             <th style="width: 6.5%;">Date</th>
             <th style="width: 6.5%;">CBV No</th>
             <th style="width: 4%;">Code</th>
@@ -350,17 +353,14 @@
     let currentOfficeId = '';
     let allOfficeTransactions = [];
 
-  window.onload = async function() {
+    window.onload = async function() {
       showLoading('Authenticating session...');
-      
-      // 1. Await session verification first
       const { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
       if (sessionErr || !session) {
         Swal.close();
         window.location.href = 'login.html';
         return;
       }
-      
       currentOfficeId = session.user.id;
       document.getElementById('officeTitle').innerText = `KERALA WATER AUTHORITY (${session.user.email})`;
 
@@ -377,11 +377,10 @@
       }, { passive: false });
 
       handleCategoryChange();
-      
-      // 2. Load masters and cash book data sequentially after session is confirmed
       await loadInitialMasters();
       await loadCashBookData();
     };
+
     function showLoading(title = 'Processing...') {
       Swal.fire({
         title: title,
@@ -393,7 +392,6 @@
     async function loadInitialMasters() {
       showLoading('Loading configuration & masters...');
       try {
-        // Fetch Account Codes Master (Global)
         const { data: codesData, error: codesErr } = await supabaseClient
           .from('account_codes_master')
           .select('*')
@@ -402,7 +400,6 @@
         if (codesErr) throw codesErr;
         masterAccountCodes = codesData || [];
 
-        // Fetch Bank Master (Office Specific)
         const { data: banksData, error: banksErr } = await supabaseClient
           .from('bank_master')
           .select('*')
@@ -417,7 +414,6 @@
           bankSelect.innerHTML += `<option value="${escapeHtml(b.account_nickname)}">${escapeHtml(b.account_nickname)} (${escapeHtml(b.category)})</option>`;
         });
 
-        // Initialize item rows using the newly fetched masterAccountCodes
         const tbody = document.getElementById('itemsRows');
         tbody.innerHTML = '';
         addItemRow();
@@ -742,7 +738,6 @@
       showLoading('Saving transaction...');
 
       try {
-        // If editing, delete old rows for this voucher first
         if (isEdit) {
           const { error: delErr } = await supabaseClient
             .from('transactions')
@@ -848,14 +843,12 @@
     }
 
     function buildDoubleSidePairs(txns) {
-      // Sort receipts strictly by numerical CBR number order
       const receipts = txns.filter(t => t.type === 'Receipt').sort((a, b) => {
         const numA = parseInt(String(a.serial_no).replace(/\D/g, ''), 10) || 0;
         const numB = parseInt(String(b.serial_no).replace(/\D/g, ''), 10) || 0;
         return numA - numB;
       });
 
-      // Sort payments strictly by numerical CBV number order
       const payments = txns.filter(t => t.type === 'Payment').sort((a, b) => {
         const numA = parseInt(String(a.serial_no).replace(/\D/g, ''), 10) || 0;
         const numB = parseInt(String(b.serial_no).replace(/\D/g, ''), 10) || 0;
@@ -866,33 +859,29 @@
       const usedReceiptIds = new Set();
       let pairCounter = 0;
 
-      // Group payments by serial_no
       const paymentGroups = {};
       payments.forEach(p => {
         if (!paymentGroups[p.serial_no]) paymentGroups[p.serial_no] = [];
         paymentGroups[p.serial_no].push(p);
       });
 
-      // First, iterate through sorted receipts so they appear in CBR order
       receipts.forEach(r => {
         if (usedReceiptIds.has(r.txn_id)) return;
 
         if (r.linked_cbv) {
-          // This receipt is linked to a CBV payment
           const cbvSerial = r.linked_cbv;
           const matchingPayments = paymentGroups[cbvSerial] || [];
           
           pairCounter++;
           pairs.push({
             receipt: r,
-            payment: matchingPayments.shift() || null, // Pair with corresponding payment line item
+            payment: matchingPayments.shift() || null,
             isMatchedPair: true,
             pairId: pairCounter,
             isStandaloneCbr: false
           });
           usedReceiptIds.add(r.txn_id);
         } else {
-          // Standalone receipt
           pairs.push({
             receipt: r,
             payment: null,
@@ -904,7 +893,6 @@
         }
       });
 
-      // Add any remaining payment lines that didn't have paired receipts
       Object.keys(paymentGroups).forEach(cbvSerial => {
         const remainingPayments = paymentGroups[cbvSerial];
         remainingPayments.forEach(p => {
@@ -942,7 +930,6 @@
           tr.style.backgroundColor = '#ffffff';
         }
 
-        // --- Receipt Side Columns ---
         if (pair.receipt) {
           const r = pair.receipt;
           const amt = Number(r.amount) || 0;
@@ -971,12 +958,10 @@
           }
         }
 
-        // --- Center Separator Column ---
         const sepTd = document.createElement('td');
         sepTd.className = 'table-separator';
         tr.appendChild(sepTd);
 
-        // --- Payment Side Columns ---
         if (pair.payment) {
           const p = pair.payment;
           const amt = Number(p.amount) || 0;
@@ -1198,6 +1183,165 @@
           row.style.display = match ? '' : 'none';
         }
       });
+    }
+
+    // --- REPORT GENERATORS ---
+    async function promptMonthYear() {
+      const { value: monthYear } = await Swal.fire({
+        title: 'Select Report Month-Year',
+        input: 'text',
+        inputLabel: 'Enter Month and Year (e.g., Oct-26):',
+        inputValue: 'Oct-26',
+        showCancelButton: true,
+        inputValidator: (value) => {
+          if (!value) return 'You need to write a month-year!';
+        }
+      });
+      return monthYear;
+    }
+
+    async function exportCb27Excel() {
+      const monthYear = await promptMonthYear();
+      if (!monthYear) return;
+
+      showLoading('Generating CB27 Excel...');
+      try {
+        const txns = allOfficeTransactions.filter(t => t.month_year.toLowerCase() === monthYear.toLowerCase());
+        const { data: codes } = await supabaseClient.from('account_codes_master').select('*');
+        const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
+
+        let openCash = 0, openDrawing = 0, openNonOp = 0;
+        banks.forEach(b => {
+          const bal = Number(b.opening_balance) || 0;
+          const cat = (b.category || '').trim().toLowerCase();
+          if (cat === 'cash') openCash += bal;
+          else if (cat === 'drawing') openDrawing += bal;
+          else if (cat.includes('non')) openNonOp += bal;
+        });
+
+        const summary = {};
+        codes.forEach(ac => {
+          summary[ac.account_code] = { particulars: ac.particulars, recCash: 0, recDrawing: 0, recNonOp: 0, payCash: 0, payDrawing: 0, payNonOp: 0 };
+        });
+
+        let recC = 0, recD = 0, recN = 0, payC = 0, payD = 0, payN = 0;
+
+        txns.forEach(t => {
+          if (!summary[t.account_code]) {
+            summary[t.account_code] = { particulars: t.particulars, recCash: 0, recDrawing: 0, recNonOp: 0, payCash: 0, payDrawing: 0, payNonOp: 0 };
+          }
+          const amt = Number(t.amount) || 0;
+          if (t.type === 'Receipt') {
+            if (t.category === 'Cash') { summary[t.account_code].recCash += amt; recC += amt; }
+            else if (t.category === 'Drawing') { summary[t.account_code].recDrawing += amt; recD += amt; }
+            else { summary[t.account_code].recNonOp += amt; recN += amt; }
+          } else {
+            if (t.category === 'Cash') { summary[t.account_code].payCash += amt; payC += amt; }
+            else if (t.category === 'Drawing') { summary[t.account_code].payDrawing += amt; payD += amt; }
+            else { summary[t.account_code].payNonOp += amt; payN += amt; }
+          }
+        });
+
+        const closeC = openCash + recC - payC;
+        const closeD = openDrawing + recD - payD;
+        const closeN = openNonOp + recN - payN;
+
+        const wbData = [
+          ["KERALA WATER AUTHORITY - PH DIVISION"],
+          [`FORM CB 27 (Monthly Abstract of Cash Book - ${monthYear})`],
+          [],
+          ["Acc Code", "Particulars", "Rec Cash", "Rec Drawing", "Rec Non Op", "Pay Cash", "Pay Drawing", "Pay Non Op"],
+          ["-", "Opening Balance", openCash, openDrawing, openNonOp, "-", "-", "-"]
+        ];
+
+        Object.keys(summary).forEach(code => {
+          const s = summary[code];
+          if (s.recCash || s.recDrawing || s.recNonOp || s.payCash || s.payDrawing || s.payNonOp) {
+            wbData.push([code, s.particulars, s.recCash || '-', s.recDrawing || '-', s.recNonOp || '-', s.payCash || '-', s.payDrawing || '-', s.payNonOp || '-']);
+          }
+        });
+
+        wbData.push(["-", "Sub-Total Transactions", recC, recD, recN, payC, payD, payN]);
+        wbData.push(["-", "Closing Balance", "-", "-", "-", closeC, closeD, closeN]);
+        wbData.push(["-", "GRAND TOTAL", openCash + recC, openDrawing + recD, openNonOp + recN, payC + closeC, payD + closeD, payN + closeN]);
+
+        const ws = XLSX.utils.aoa_to_sheet(wbData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "CB 27 Abstract");
+        XLSX.writeFile(wb, `CB27_Abstract_${monthYear}.xlsx`);
+        Swal.close();
+      } catch (err) {
+        Swal.close();
+        Swal.fire('Error', 'Export failed: ' + err.message, 'error');
+      }
+    }
+
+    async function exportCb27Pdf() {
+      const monthYear = await promptMonthYear();
+      if (!monthYear) return;
+      window.print();
+    }
+
+    async function exportCb28Pdf() {
+      const monthYear = await promptMonthYear();
+      if (!monthYear) return;
+
+      showLoading('Generating CB28 PDF...');
+      const txns = allOfficeTransactions.filter(t => t.month_year.toLowerCase() === monthYear.toLowerCase());
+      
+      let printWindow = window.open('', '_blank');
+      let html = `<html><head><title>CB28 - ${monthYear}</title><style>body{font-family:Arial;font-size:11px;padding:20px;} table{width:100%;border-collapse:collapse;margin-bottom:20px;} th,td{border:1px solid #000;padding:5px;font-size:10px;} th{background:#eee;}</style></head><body>`;
+      html += `<h2>KERALA WATER AUTHORITY - FORM CB 28 (${monthYear})</h2>`;
+
+      const codes = [...new Set(txns.map(t => t.account_code))];
+      codes.forEach(code => {
+        const codeTxns = txns.filter(t => t.account_code === code);
+        html += `<h3>Account Code: ${code}</h3>`;
+        html += `<table><thead><tr><th>Date</th><th>Type</th><th>Serial</th><th>Particulars</th><th>Amount (₹)</th></tr></thead><tbody>`;
+        codeTxns.forEach(t => {
+          html += `<tr><td>${t.date}</td><td>${t.type}</td><td>${t.serial_no}</td><td>${t.particulars}</td><td style="text-align:right;">${Number(t.amount).toFixed(2)}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+      });
+
+      html += `</body></html>`;
+      printWindow.document.write(html);
+      printWindow.document.close();
+      Swal.close();
+      printWindow.print();
+    }
+
+    async function exportDoubleSideExcel() {
+      showLoading('Generating Double-Side Excel...');
+      try {
+        const pairs = buildDoubleSidePairs(allOfficeTransactions);
+        const wbData = [
+          ["KERALA WATER AUTHORITY - PH DIVISION, THIRUVALLA"],
+          ["DOUBLE SIDED CASH BOOK VIEW"],
+          [],
+          ["Receipt Date", "CBR No", "Acc Code", "Particulars", "Cash", "Drawing", "Non Op", " | ", "Payment Date", "CBV No", "Acc Code", "Particulars", "Cheque No", "Cash", "Drawing", "Non Op"]
+        ];
+
+        pairs.forEach(p => {
+          const r = p.receipt;
+          const pm = p.payment;
+          wbData.push([
+            r ? r.date : '', r ? r.serial_no : '', r ? r.account_code : '', r ? r.particulars : '',
+            r && r.category === 'Cash' ? r.amount : '', r && r.category === 'Drawing' ? r.amount : '', r && r.category === 'Non Operative' ? r.amount : '', '|',
+            pm ? pm.date : '', pm ? pm.serial_no : '', pm ? pm.account_code : '', pm ? pm.particulars : '',
+            pm ? pm.cheque_no : '', pm && pm.category === 'Cash' ? pm.amount : '', pm && pm.category === 'Drawing' ? pm.amount : '', pm && pm.category === 'Non Operative' ? pm.amount : ''
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(wbData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Double Side View");
+        XLSX.writeFile(wb, `Cash_Book_Ledger.xlsx`);
+        Swal.close();
+      } catch (err) {
+        Swal.close();
+        Swal.fire('Error', 'Excel export failed: ' + err.message, 'error');
+      }
     }
 
     async function logout() {
