@@ -8,200 +8,128 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-
     :root {
-      --kwa-primary: #003366;
-      --kwa-secondary: #004d99;
-      --kwa-accent: #0ea5e9;
-      --bg-page: #f1f5f9;
+      --kwa-primary: #0b3d73;
+      --kwa-primary-dark: #082c54;
+      --kwa-secondary: #1558a6;
+      --bg-page: #eef2f7;
       --card-bg: #ffffff;
       --text-dark: #0f172a;
-      --text-muted: #64748b;
+      --text-muted: #5b6b80;
       --border-light: #e2e8f0;
-      --green-credit: #059669;
-      --red-debit: #dc2626;
+      --red-debit: #b91c1c;
+      --radius: 16px;
+      --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.05);
+      --shadow-md: 0 14px 30px rgba(11,61,115,.14);
     }
     * { box-sizing: border-box; }
-    body { 
+    body {
       display: none; /* Hidden until auth verified */
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
-      margin: 0; 
-      padding: 20px; 
-      background-color: var(--bg-page); 
-      color: var(--text-dark);
-      line-height: 1.5;
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+      margin: 0; background: var(--bg-page); color: var(--text-dark);
+      line-height: 1.5; font-size: 15px; -webkit-font-smoothing: antialiased;
     }
-    .container { max-width: 1440px; margin: 0 auto; }
-    
-    /* Unified Modern Banner */
-    .app-banner { 
-      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
-      color: #ffffff; 
-      padding: 18px 24px; 
-      border-radius: 10px; 
-      margin-bottom: 24px; 
-      box-shadow: 0 4px 12px rgba(0, 51, 102, 0.15); 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      flex-wrap: wrap; 
-      gap: 12px; 
+    .container { max-width: 1280px; margin: 0 auto; padding: 0 20px 48px; }
+
+    /* ---------- Banner ---------- */
+    .app-banner {
+      position: sticky; top: 0; z-index: 50;
+      background: linear-gradient(120deg, var(--kwa-primary-dark) 0%, var(--kwa-primary) 55%, var(--kwa-secondary) 100%);
+      color: #fff; padding: 14px 24px; margin: 0 -20px 28px;
+      box-shadow: 0 4px 16px rgba(8,44,84,.25);
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
     }
-    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .banner-left h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
     .banner-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
-    .banner-subtitle { font-size: 13px; opacity: 0.9; font-weight: 500; }
-    .active-month-pill { 
-      background: rgba(255, 255, 255, 0.18); 
-      border: 1px solid rgba(255, 255, 255, 0.35); 
-      padding: 2px 10px; 
-      border-radius: 999px; 
-      font-size: 12px; 
-      font-weight: 600; 
+    .banner-subtitle { font-size: 13.5px; opacity: .92; font-weight: 500; }
+    .active-month-pill {
+      background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.4);
+      padding: 3px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
     }
-    
-    /* Header Navigation Buttons */
-    .btn-nav-home { 
-      background-color: rgba(255, 255, 255, 0.15); 
-      color: #ffffff; 
-      border: 1px solid rgba(255, 255, 255, 0.35); 
-      padding: 8px 16px; 
-      font-size: 13px; 
-      border-radius: 6px; 
-      text-decoration: none; 
-      font-weight: 600; 
-      display: inline-flex; 
-      align-items: center; 
-      gap: 6px; 
-      transition: all 0.2s ease; 
-      cursor: pointer; 
+    .btn-nav-home {
+      background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.4);
+      padding: 10px 20px; min-height: 44px; font-size: 14px; font-family: inherit; border-radius: 999px;
+      text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;
+      transition: background .2s, transform .2s; cursor: pointer;
     }
-    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
-    .btn-signout { background-color: #dc2626; border-color: #b91c1c; }
-    .btn-signout:hover { background-color: #b91c1c; }
+    .btn-nav-home:hover { background: rgba(255,255,255,.28); transform: translateY(-1px); }
+    .btn-nav-home:focus-visible, .nav-tile:focus-visible { outline: 3px solid rgba(14,165,233,.6); outline-offset: 3px; }
+    .btn-signout { background: #dc2626; border-color: #b91c1c; }
+    .btn-signout:hover { background: #b91c1c; }
 
-    /* Cards & Containers */
-    .card { 
-      background: var(--card-bg); 
-      padding: 22px 24px; 
-      border-radius: 10px; 
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); 
-      margin-bottom: 24px; 
-      border: 1px solid var(--border-light); 
-    }
-    .card-header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      border-bottom: 2px solid var(--border-light); 
-      padding-bottom: 12px; 
-      margin-bottom: 18px; 
-      flex-wrap: wrap; 
-      gap: 10px; 
-    }
-    .card-header h3 { margin: 0; color: var(--kwa-primary); font-size: 17px; font-weight: 700; }
-
-    .kpi-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 18px;
-      margin-bottom: 28px;
-    }
-    .kpi-box {
-      background: #ffffff;
-      border-radius: 10px;
-      padding: 18px 20px;
-      border: 1px solid var(--border-light);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-      border-top: 4px solid var(--kwa-primary);
-    }
-    .kpi-box.cash { border-top-color: #0ea5e9; }
-    .kpi-box.drawing { border-top-color: #2563eb; }
-    .kpi-box.nop { border-top-color: #7c3aed; }
-    .kpi-title { font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.6px; }
-    .kpi-num { font-size: 22px; font-weight: 700; color: var(--text-dark); margin-top: 6px; font-variant-numeric: tabular-nums; }
-    .kpi-num.neg { color: var(--red-debit); }
-
+    /* ---------- Section labels ---------- */
     .section-label {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-muted);
-      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 12px;
+      font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .9px;
+      color: var(--text-muted); margin: 0 0 14px;
     }
+    .section-label::after { content: ""; flex: 1; height: 1px; background: #d5deea; }
 
-    .tiles-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
+    /* ---------- KPI strip ---------- */
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-bottom: 34px; }
+    .kpi-box {
+      --accent: var(--kwa-primary); --accent-soft: #e8f0fa;
+      position: relative; background: var(--card-bg); border: 1px solid var(--border-light);
+      border-radius: var(--radius); padding: 20px 22px 20px 78px; box-shadow: var(--shadow-sm); min-height: 104px;
+      display: flex; flex-direction: column; justify-content: center;
     }
+    .kpi-box::before {
+      content: ""; position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+      width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px rgba(15,23,42,.04);
+    }
+    .kpi-box::after {
+      content: attr(data-icon); position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+      width: 40px; text-align: center; font-size: 20px; line-height: 40px;
+    }
+    .kpi-box.cash    { --accent: #0ea5e9; --accent-soft: #e0f2fe; }
+    .kpi-box.drawing { --accent: #2563eb; --accent-soft: #dbeafe; }
+    .kpi-box.nop     { --accent: #7c3aed; --accent-soft: #ede9fe; }
+    .kpi-title { font-size: 12px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: .6px; }
+    .kpi-num { font-size: 28px; font-weight: 700; color: var(--text-dark); margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+    .kpi-num.neg { color: var(--red-debit); }
+    .kpi-box .kpi-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 0 0 var(--radius) var(--radius); background: var(--accent); }
+
+    /* ---------- Module tiles ---------- */
+    .tiles-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
     .nav-tile {
-      background: #ffffff;
-      border-radius: 12px;
-      padding: 26px 24px;
-      border: 1px solid var(--border-light);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-      text-decoration: none;
-      color: inherit;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: all 0.22s ease;
-      position: relative;
-      overflow: hidden;
+      --accent: var(--kwa-primary); --accent-soft: #e8f0fa;
+      position: relative; overflow: hidden; background: var(--card-bg); border: 1px solid var(--border-light);
+      border-radius: var(--radius); padding: 26px 26px 22px; box-shadow: var(--shadow-sm);
+      text-decoration: none; color: inherit; display: flex; flex-direction: column; justify-content: space-between; gap: 18px;
+      transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
     }
-    .nav-tile::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; bottom: 0;
-      width: 5px;
-      background: var(--kwa-primary);
-      transition: width 0.2s ease;
-    }
-    .nav-tile.tile-cb::before { background: #003366; }
-    .nav-tile.tile-bank::before { background: #059669; }
-    .nav-tile.tile-tax::before { background: #7c3aed; }
-    
-    .nav-tile:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(0, 51, 102, 0.12);
-      border-color: #cbd5e1;
-    }
-    .tile-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      margin-bottom: 16px;
-    }
-    .tile-cb .tile-icon { background: #e0f2fe; color: #0369a1; }
-    .tile-bank .tile-icon { background: #d1fae5; color: #047857; }
-    .tile-tax .tile-icon { background: #ede9fe; color: #6d28d9; }
+    .nav-tile::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--accent); }
+    .nav-tile:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--accent); }
+    .nav-tile:active { transform: translateY(-1px); }
+    .tile-cb      { --accent: #0b3d73; --accent-soft: #e0ecf9; }
+    .tile-bank    { --accent: #059669; --accent-soft: #d1fae5; }
+    .tile-tax     { --accent: #7c3aed; --accent-soft: #ede9fe; }
+    .tile-archive { --accent: #0284c7; --accent-soft: #e0f2fe; }
+    .tile-close   { --accent: #d97706; --accent-soft: #fef3c7; }
 
-    .nav-tile h2 {
-      margin: 0 0 8px 0;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--kwa-primary);
+    .tile-icon {
+      width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+      font-size: 28px; margin-bottom: 16px; background: var(--accent-soft);
     }
-    .nav-tile p {
-      margin: 0 0 18px 0;
-      font-size: 13px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
+    .nav-tile h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; color: var(--kwa-primary); }
+    .nav-tile p { margin: 0; font-size: 14px; color: var(--text-muted); line-height: 1.55; }
     .tile-action {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--kwa-secondary);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      font-size: 14px; font-weight: 600; color: var(--accent);
+      display: inline-flex; align-items: center; justify-content: space-between; gap: 6px;
+      padding-top: 14px; border-top: 1px solid var(--border-light);
     }
-    .nav-tile:hover .tile-action { gap: 10px; }
+    .tile-action::after { content: ""; }
+    .nav-tile:hover .tile-action { gap: 12px; }
+
+    @media (max-width: 720px) {
+      .container { padding: 0 12px 32px; }
+      .app-banner { margin: 0 -12px 18px; padding: 12px 14px; }
+      .banner-left h1 { font-size: 15px; }
+      .tiles-grid { grid-template-columns: 1fr; }
+      .kpi-num { font-size: 24px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
 <body>
@@ -215,76 +143,76 @@
         </div>
       </div>
       <div>
-        <button onclick="logout()" class="btn-nav-home btn-signout">Sign Out</button>
+        <button onclick="logout()" class="btn-nav-home btn-signout">⎋ Sign Out</button>
       </div>
     </div>
 
     <!-- Live Summary Strip -->
+    <div class="section-label">Live Balances</div>
     <div class="kpi-row">
-      <div class="kpi-box cash">
+      <div class="kpi-box cash" data-icon="💵">
         <div class="kpi-title">Live Cash Balance</div>
         <div class="kpi-num" id="dashCash">₹ 0.00</div>
+        <span class="kpi-bar"></span>
       </div>
-      <div class="kpi-box drawing">
+      <div class="kpi-box drawing" data-icon="🏛️">
         <div class="kpi-title">Live Drawing Account Balance</div>
         <div class="kpi-num" id="dashDrawing">₹ 0.00</div>
+        <span class="kpi-bar"></span>
       </div>
-      <div class="kpi-box nop">
+      <div class="kpi-box nop" data-icon="🏦">
         <div class="kpi-title">Live Non-Operative Balance</div>
         <div class="kpi-num" id="dashNop">₹ 0.00</div>
+        <span class="kpi-bar"></span>
       </div>
     </div>
 
     <div class="section-label">Select Module</div>
     <div class="tiles-grid">
-      <!-- Tile 1: Cash Book -->
       <a href="cashbook.html" class="nav-tile tile-cb">
         <div>
           <div class="tile-icon">📒</div>
           <h2>Cash Book Ledger</h2>
           <p>Record daily CBR receipts & CBV payments, manage paired vouchers, and generate CB27 & CB28 monthly abstracts.</p>
         </div>
-        <div class="tile-action">Open Cash Book →</div>
+        <div class="tile-action">Open Cash Book <span>→</span></div>
       </a>
 
-      <!-- Tile 2: Bank Balances -->
       <a href="bankbalances.html" class="nav-tile tile-bank">
         <div>
           <div class="tile-icon">🏦</div>
           <h2>Bank Balances & Statements</h2>
           <p>Monitor live balances across Cash, Drawing, and Non-Operative accounts with itemized descending statements.</p>
         </div>
-        <div class="tile-action">View Account Balances →</div>
+        <div class="tile-action">View Account Balances <span>→</span></div>
       </a>
 
-      <!-- Tile 3: Tax Report -->
       <a href="taxview.html" class="nav-tile tile-tax">
         <div>
           <div class="tile-icon">📊</div>
           <h2>Tax & Recovery Report</h2>
           <p>Review consolidated statutory deductions, GST/TDS recoveries, and account-head wise recovery schedules.</p>
         </div>
-        <div class="tile-action">Open Tax Report →</div>
+        <div class="tile-action">Open Tax Report <span>→</span></div>
       </a>
-      <!-- Tile 4: Archived Months -->
-<a href="archiveview.html" class="nav-tile" style="border-left: 5px solid #0284c7;">
-  <div>
-    <div class="tile-icon" style="background: #e0f2fe; color: #0284c7;">📂</div>
-    <h2>Archived Months Cash Book</h2>
-    <p>View historical transactions, monthly closing ledgers, and verified abstracts for previously archived months.</p>
-  </div>
-  <div class="tile-action">Open Archive →</div>
-</a>
 
-<!-- Tile 5: Close Month -->
-<a href="closemonth.html" class="nav-tile" style="border-left: 5px solid #059669;">
-  <div>
-    <div class="tile-icon" style="background: #d1fae5; color: #059669;">🔒</div>
-    <h2>Month Closing & Archival</h2>
-    <p>Perform monthly verification, lock transactions, carry forward closing balances, and advance active accounting period.</p>
-  </div>
-  <div class="tile-action">Run Month Closing →</div>
-</a>
+      <a href="archiveview.html" class="nav-tile tile-archive">
+        <div>
+          <div class="tile-icon">📂</div>
+          <h2>Archived Months Cash Book</h2>
+          <p>View historical transactions, monthly closing ledgers, and verified abstracts for previously archived months.</p>
+        </div>
+        <div class="tile-action">Open Archive <span>→</span></div>
+      </a>
+
+      <a href="closemonth.html" class="nav-tile tile-close">
+        <div>
+          <div class="tile-icon">🔒</div>
+          <h2>Month Closing & Archival</h2>
+          <p>Perform monthly verification, lock transactions, carry forward closing balances, and advance active accounting period.</p>
+        </div>
+        <div class="tile-action">Run Month Closing <span>→</span></div>
+      </a>
     </div>
   </div>
 
