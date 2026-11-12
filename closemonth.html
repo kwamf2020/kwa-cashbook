@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KWA - Month Closing & Archival</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --kwa-primary: #003366;
+      --kwa-secondary: #004d99;
+      --bg-page: #f1f5f9;
+      --card-bg: #ffffff;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --border-light: #e2e8f0;
+      --green-credit: #059669;
+      --red-debit: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body { 
+      display: none; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      margin: 0; padding: 20px; background-color: var(--bg-page); color: var(--text-dark);
+      line-height: 1.5;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .app-banner { 
+      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
+      color: #ffffff; padding: 18px 24px; border-radius: 10px; margin-bottom: 24px; 
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; 
+    }
+    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; }
+    .btn-nav-home { 
+      background-color: rgba(255, 255, 255, 0.15); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 8px 16px; font-size: 13px; border-radius: 6px; text-decoration: none; font-weight: 600; 
+    }
+    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); }
+    .card { background: var(--card-bg); padding: 28px; border-radius: 10px; border: 1px solid var(--border-light); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .card h2 { color: var(--kwa-primary); margin-top: 0; font-size: 20px; border-bottom: 2px solid var(--border-light); padding-bottom: 12px; }
+    .info-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 20px; font-size: 14px; }
+    .btn-close-month {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: none;
+      padding: 12px 24px; font-size: 15px; font-weight: 700; border-radius: 8px; cursor: pointer; width: 100%; transition: opacity 0.2s;
+    }
+    .btn-close-month:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app-banner">
+      <div class="banner-left">
+        <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
+        <div style="font-size: 13px; opacity: 0.9; margin-top: 4px;">Month Closing & Archival Wizard</div>
+      </div>
+      <div>
+        <a href="index.html" class="btn-nav-home">🏠 Home</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Monthly Cash Book Closing Procedure</h2>
+      <div class="info-box" id="activeMonthInfo">
+        Loading active month details...
+      </div>
+
+      <p style="font-size: 13.5px; color: var(--text-muted); margin-bottom: 20px;">
+        Closing the active month will verify all transaction entries, freeze the ledger for the period, generate closing account balances to carry forward as opening balances for the subsequent month, and advance your active accounting period.
+      </p>
+
+      <button class="btn-close-month" onclick="confirmCloseMonth()">🔒 Proceed to Close & Archive Active Month</button>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://nayvftqylbjwspmjxbjc.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_qGT19bz8IOnF4-vWCbk4aQ_UCcaBc9U';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentOfficeId = '';
+    let currentOfficeSettings = null;
+
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    window.onload = async function() {
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      if (error || !session) { window.location.href = 'login.html'; return; }
+      currentOfficeId = session.user.id;
+
+      const { data: officeSet } = await supabaseClient.from('office_settings').select('*').eq('office_id', currentOfficeId).single();
+      if (!officeSet) { window.location.href = 'setup.html'; return; }
+
+      currentOfficeSettings = officeSet;
+      document.body.style.display = 'block';
+      document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
+      
+      document.getElementById('activeMonthInfo').innerHTML = `
+        Current Active Accounting Month: <strong>${officeSet.current_active_month}</strong><br>
+        ARU Code: ${officeSet.aru_code}<br>
+        Office: ${officeSet.office_name}
+      `;
+    };
+
+    async function confirmCloseMonth() {
+      const { value: confirmed } = await Swal.fire({
+        title: 'Close & Archive Month?',
+        text: `Are you sure you want to close and archive ${currentOfficeSettings.current_active_month}? This will advance the active accounting period.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#dc2626',
+        confirmButtonText: 'Yes, Close Month'
+      });
+
+      if (!confirmed) return;
+
+      Swal.fire({ title: 'Processing Month Closing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      try {
+        // Calculate next month
+        const [mName, yStr] = currentOfficeSettings.current_active_month.split('-');
+        let mIdx = MONTH_NAMES.findIndex(m => m.toLowerCase() === mName.toLowerCase());
+        let year = parseInt(yStr, 10);
+        
+        mIdx++;
+        if (mIdx > 11) {
+          mIdx = 0;
+          year++;
+        }
+        const nextMonthYear = `${MONTH_NAMES[mIdx]}-${year}`;
+
+        // Update office_settings current_active_month
+        const { error: updateErr } = await supabaseClient
+          .from('office_settings')
+          .update({ current_active_month: nextMonthYear })
+          .eq('office_id', currentOfficeId);
+
+        if (updateErr) throw updateErr;
+
+        Swal.fire({
+          title: 'Month Closed Successfully!',
+          text: `Month ${currentOfficeSettings.current_active_month} has been successfully closed and archived. Active month is now ${nextMonthYear}.`,
+          icon: 'success'
+        }).then(() => {
+          window.location.href = 'index.html';
+        });
+
+      } catch (err) {
+        Swal.fire('Error', 'Failed to close month: ' + err.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>
