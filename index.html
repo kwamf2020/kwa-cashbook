@@ -362,7 +362,22 @@
         return;
       }
       currentOfficeId = session.user.id;
-      document.getElementById('officeTitle').innerText = `KERALA WATER AUTHORITY (${session.user.email})`;
+
+      // 1. Check if Office Setup is completed
+      const { data: officeSet, error: setErr } = await supabaseClient
+        .from('office_settings')
+        .select('*')
+        .eq('office_id', currentOfficeId)
+        .single();
+
+      if (!officeSet || setErr) {
+        Swal.close();
+        window.location.href = 'setup.html';
+        return;
+      }
+
+      // 2. Set Office Title & Header details from settings
+      document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
 
       const now = new Date();
       const dd = String(now.getDate()).padStart(2, '0');
