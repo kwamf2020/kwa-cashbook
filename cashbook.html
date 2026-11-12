@@ -10,166 +10,244 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   
   <style>
-
     :root {
-      --kwa-primary: #003366;
-      --kwa-secondary: #004d99;
+      --kwa-primary: #0b3d73;
+      --kwa-primary-dark: #082c54;
+      --kwa-secondary: #1558a6;
       --kwa-accent: #0ea5e9;
-      --bg-page: #f1f5f9;
+      --bg-page: #eef2f7;
       --card-bg: #ffffff;
       --text-dark: #0f172a;
-      --text-muted: #64748b;
+      --text-muted: #5b6b80;
       --border-light: #e2e8f0;
-      --green-credit: #059669;
-      --red-debit: #dc2626;
+      --border-input: #b9c4d3;
+      --green-credit: #047857;
+      --green-soft: #ecfdf5;
+      --red-debit: #b91c1c;
+      --red-soft: #fef2f2;
+      --amber: #d97706;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow-sm: 0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.05);
+      --shadow-md: 0 6px 20px rgba(15,23,42,.08);
+      --mode-color: var(--green-credit);
     }
     * { box-sizing: border-box; }
-    body { 
+    html { scroll-behavior: smooth; }
+    body {
       display: none; /* Hidden until auth verified */
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
-      margin: 0; 
-      padding: 20px; 
-      background-color: var(--bg-page); 
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+      margin: 0;
+      background: var(--bg-page);
       color: var(--text-dark);
       line-height: 1.5;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
     }
-    .container { max-width: 1440px; margin: 0 auto; }
-    
-    /* Unified Modern Banner */
-    .app-banner { 
-      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
-      color: #ffffff; 
-      padding: 18px 24px; 
-      border-radius: 10px; 
-      margin-bottom: 24px; 
-      box-shadow: 0 4px 12px rgba(0, 51, 102, 0.15); 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      flex-wrap: wrap; 
-      gap: 12px; 
+    .container { max-width: 1520px; margin: 0 auto; padding: 0 20px 40px; }
+
+    /* ---------- Top banner ---------- */
+    .app-banner {
+      position: sticky; top: 0; z-index: 50;
+      background: linear-gradient(120deg, var(--kwa-primary-dark) 0%, var(--kwa-primary) 55%, var(--kwa-secondary) 100%);
+      color: #fff;
+      padding: 14px 24px;
+      margin: 0 -20px 24px;
+      box-shadow: 0 4px 16px rgba(8,44,84,.25);
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
     }
-    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .banner-left h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
     .banner-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
-    .banner-subtitle { font-size: 13px; opacity: 0.9; font-weight: 500; }
-    .active-month-pill { 
-      background: rgba(255, 255, 255, 0.18); 
-      border: 1px solid rgba(255, 255, 255, 0.35); 
-      padding: 2px 10px; 
-      border-radius: 999px; 
-      font-size: 12px; 
-      font-weight: 600; 
+    .banner-subtitle { font-size: 13.5px; opacity: .92; font-weight: 500; }
+    .active-month-pill {
+      background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.4);
+      padding: 3px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
     }
-    
-    /* Header Navigation Buttons */
-    .btn-nav-home { 
-      background-color: rgba(255, 255, 255, 0.15); 
-      color: #ffffff; 
-      border: 1px solid rgba(255, 255, 255, 0.35); 
-      padding: 8px 16px; 
-      font-size: 13px; 
-      border-radius: 6px; 
-      text-decoration: none; 
-      font-weight: 600; 
-      display: inline-flex; 
-      align-items: center; 
-      gap: 6px; 
-      transition: all 0.2s ease; 
-      cursor: pointer; 
+    .btn-nav-home {
+      background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.4);
+      padding: 10px 18px; font-size: 14px; border-radius: 999px; text-decoration: none; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px; transition: background .2s, transform .2s; cursor: pointer;
     }
-    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
+    .btn-nav-home:hover { background: rgba(255,255,255,.28); transform: translateY(-1px); }
     .btn-signout { background-color: #dc2626; border-color: #b91c1c; }
     .btn-signout:hover { background-color: #b91c1c; }
 
-    /* Cards & Containers */
-    .card { 
-      background: var(--card-bg); 
-      padding: 22px 24px; 
-      border-radius: 10px; 
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); 
-      margin-bottom: 24px; 
-      border: 1px solid var(--border-light); 
+    /* ---------- Cards ---------- */
+    .card {
+      background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border-light);
+      box-shadow: var(--shadow-sm); padding: 26px 28px; margin-bottom: 26px;
     }
-    .card-header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      border-bottom: 2px solid var(--border-light); 
-      padding-bottom: 12px; 
-      margin-bottom: 18px; 
-      flex-wrap: wrap; 
-      gap: 10px; 
+    .entry-card { border-top: 5px solid var(--mode-color); }
+    .entry-card:has(#type option[value="Payment"]:checked) { --mode-color: var(--red-debit); }
+    .card-header {
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+      padding-bottom: 14px; margin-bottom: 20px; border-bottom: 1px solid var(--border-light);
     }
-    .card-header h3 { margin: 0; color: var(--kwa-primary); font-size: 17px; font-weight: 700; }
+    .card-header h3 { margin: 0; color: var(--kwa-primary); font-size: 20px; font-weight: 700; }
 
-    .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .section-label {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
+      color: var(--text-muted); margin: 6px 0 12px;
+    }
+    .section-label::after { content: ""; flex: 1; height: 1px; background: var(--border-light); }
+    .step-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 50%; background: var(--kwa-primary); color: #fff; font-size: 12px;
+    }
+
+    /* ---------- Form ---------- */
+    .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-bottom: 18px; }
+    .mode-box {
+      background: linear-gradient(180deg, #f4f8fd, #eef4fb);
+      border: 1px solid #cfdcec; border-radius: var(--radius-sm); padding: 16px 18px; margin-bottom: 22px;
+    }
+    .mode-box .grid-form { margin: 0; }
     .form-group { display: flex; flex-direction: column; }
-    .form-group label { font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #475569; }
-    .form-group input, .form-group select { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background-color: #fff; transition: border-color 0.2s, box-shadow 0.2s; }
-    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--kwa-primary); box-shadow: 0 0 0 3px rgba(0,51,102,0.1); }
-    .form-group input:disabled, .form-group select:disabled { background-color: #f1f5f9; cursor: not-allowed; opacity: 0.7; }
-    
-    input[type=number]::-webkit-inner-spin-button, 
+    .form-group label { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; color: #334155; }
+    .form-group input, .form-group select {
+      padding: 11px 14px; min-height: 46px; border: 1.5px solid var(--border-input); border-radius: var(--radius-sm);
+      font-size: 15px; font-family: inherit; color: var(--text-dark); background-color: #fff;
+      transition: border-color .15s, box-shadow .15s, background-color .15s;
+    }
+    .form-group input::placeholder { color: #94a3b8; }
+    .form-group input:hover, .form-group select:hover { border-color: #8aa0ba; }
+    .form-group input:focus, .form-group select:focus {
+      outline: none; border-color: var(--kwa-secondary); box-shadow: 0 0 0 4px rgba(21,88,166,.16);
+    }
+    .form-group input:disabled, .form-group select:disabled { background: #f1f5f9; cursor: not-allowed; opacity: .7; }
+    .form-group input[readonly] { background: #f1f5f9; cursor: not-allowed; color: var(--text-muted); }
+    .form-group select { cursor: pointer; }
+
+    input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type=number] { -moz-appearance: textfield; }
 
-    .btn { background-color: var(--kwa-primary); color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color 0.2s; }
-    .btn:hover { background-color: #002244; }
-    .btn-secondary { background-color: #64748b; }
-    .btn-secondary:hover { background-color: #475569; }
-    .btn-cb28 { background-color: #2563eb; }
-    .btn-cb28:hover { background-color: #1d4ed8; }
-    .btn-pdf { background-color: #7c3aed; }
-    .btn-pdf:hover { background-color: #6d28d9; }
-    .btn-excel { background-color: #059669; }
-    .btn-excel:hover { background-color: #047857; }
-    .btn-danger { background-color: #ef4444; padding: 6px 10px; font-size: 12px; border-radius: 4px; }
-    .btn-danger:hover { background-color: #dc2626; }
-    .btn-add { background-color: #0ea5e9; padding: 6px 12px; font-size: 12px; margin-top: 8px; border-radius: 4px; }
-    .btn-add:hover { background-color: #0284c7; }
-    
-    .btn-action { padding: 4px 6px; font-size: 11px; border-radius: 3px; margin: 0 1px; cursor: pointer; border: none; color: white; transition: opacity 0.2s; }
-    .btn-action:hover { opacity: 0.85; }
-    .btn-edit { background-color: #f59e0b; }
-    .btn-delete { background-color: #ef4444; }
+    /* ---------- Buttons ---------- */
+    .btn {
+      background: var(--kwa-primary); color: #fff; border: none; padding: 12px 22px; min-height: 46px;
+      border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; font-size: 14.5px; font-family: inherit;
+      text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 1px 2px rgba(15,23,42,.15);
+      transition: background-color .15s, transform .1s, box-shadow .15s;
+    }
+    .btn:hover { background: var(--kwa-primary-dark); box-shadow: 0 4px 10px rgba(15,23,42,.18); }
+    .btn:active { transform: translateY(1px); }
+    .btn:focus-visible, .btn-action:focus-visible, .btn-nav-home:focus-visible { outline: 3px solid rgba(14,165,233,.5); outline-offset: 2px; }
+    .btn-secondary { background: #fff; color: #334155; border: 1.5px solid var(--border-input); box-shadow: none; }
+    .btn-secondary:hover { background: #f1f5f9; box-shadow: none; }
+    .btn-cb28 { background: #2563eb; }
+    .btn-cb28:hover { background: #1d4ed8; }
+    .btn-pdf { background: #7c3aed; }
+    .btn-pdf:hover { background: #6d28d9; }
+    .btn-excel { background: #059669; }
+    .btn-excel:hover { background: #047857; }
+    .btn-danger { background: #fee2e2; color: #b91c1c; padding: 0; width: 40px; min-height: 40px; font-size: 15px; border-radius: 8px; box-shadow: none; }
+    .btn-danger:hover { background: #ef4444; color: #fff; box-shadow: none; }
+    .btn-add {
+      background: #fff; color: var(--kwa-secondary); border: 1.5px dashed var(--kwa-secondary);
+      padding: 10px 18px; font-size: 14px; margin-top: 12px; box-shadow: none;
+    }
+    .btn-add:hover { background: #eff6ff; box-shadow: none; }
+    #saveBtn { background: var(--mode-color); padding: 12px 34px; font-size: 16px; }
+    #saveBtn:hover { filter: brightness(.9); background: var(--mode-color); }
+
+    .btn-action {
+      width: 32px; height: 32px; font-size: 14px; border-radius: 8px; margin: 0 2px; cursor: pointer;
+      border: none; color: #fff; transition: transform .1s, filter .15s; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-action:hover { filter: brightness(.92); transform: scale(1.08); }
+    .btn-edit { background: #f59e0b; }
+    .btn-delete { background: #ef4444; }
     .action-cell { white-space: nowrap; text-align: center; }
 
-    .top-action-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .filter-controls-left { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-    .filter-controls-left label { font-size: 13px; font-weight: 600; color: #475569; }
-    .filter-controls-left input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; width: 100%; max-width: 380px; }
-
-    .items-container { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background-color: #f8fafc; margin-top: 12px; }
-    .items-container h4 { margin: 0 0 12px 0; font-size: 13px; color: var(--kwa-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    table.items-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-    table.items-table th, table.items-table td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; text-align: left; background: #fff; }
-    table.items-table th { background-color: #f1f5f9; color: #334155; font-weight: 600; }
-    table.items-table select, table.items-table input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; }
-
-    .cashbook-table-wrapper { 
-      max-height: 650px; 
-      overflow-y: auto; 
-      overflow-x: auto;
-      border: 1px solid #cbd5e1; 
-      border-radius: 8px;
-      background: #fff;
+    .top-action-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .form-actions {
+      margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--border-light);
+      display: flex; gap: 12px; flex-wrap: wrap;
     }
-    table.cb-table { width: 100%; min-width: 1100px; table-layout: fixed; border-collapse: collapse; font-size: 11px; white-space: nowrap; }
-    table.cb-table th, table.cb-table td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; padding: 7px 5px; text-align: left; overflow: hidden; text-overflow: ellipsis; }
-    table.cb-table th { background-color: #1e293b; color: #ffffff; font-weight: 600; position: sticky; top: 0; z-index: 2; text-transform: uppercase; font-size: 10px; letter-spacing: 0.3px; border-bottom: 2px solid #0f172a; }
-    table.cb-table tbody tr:hover { background-color: #f8fafc !important; }
 
-    .table-separator { width: 6px !important; padding: 0 !important; background-color: #cbd5e1 !important; border-left: 1px solid #94a3b8 !important; border-right: 1px solid #94a3b8 !important; }
+    /* ---------- Line item tables ---------- */
+    .items-container {
+      border: 1px solid #d5deea; border-radius: var(--radius-sm); padding: 18px; background: #f8fafc; margin-top: 8px;
+    }
+    .items-container h4 { margin: 0 0 12px; font-size: 13px; color: var(--kwa-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: .7px; }
+    .table-scroll { overflow-x: auto; }
+    table.items-table { width: 100%; min-width: 560px; border-collapse: separate; border-spacing: 0 8px; }
+    table.items-table th { padding: 0 8px 2px; font-size: 12.5px; text-align: left; color: var(--text-muted); font-weight: 600; background: transparent; border: none; }
+    table.items-table td { padding: 0 8px 0 0; background: transparent; border: none; vertical-align: middle; }
+    table.items-table td:last-child { padding-right: 0; }
+    table.items-table select, table.items-table input {
+      width: 100%; padding: 9px 12px; min-height: 44px; border: 1.5px solid var(--border-input);
+      border-radius: 8px; font-size: 14.5px; font-family: inherit; background: #fff;
+    }
+    table.items-table select:focus, table.items-table input:focus { outline: none; border-color: var(--kwa-secondary); box-shadow: 0 0 0 4px rgba(21,88,166,.16); }
+    table.items-table input.item-amount, table.items-table input.paired-item-amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    .paired-section {
+      margin-top: 26px; padding: 20px; border-radius: var(--radius-sm);
+      background: var(--green-soft); border: 1.5px dashed #6ee7b7;
+    }
+    .paired-section h4.paired-title { color: var(--green-credit); margin: 0 0 14px; font-size: 15px; font-weight: 700; }
+
+    /* ---------- Ledger ---------- */
+    .search-wrap { position: relative; max-width: 520px; width: 100%; margin-bottom: 16px; }
+    .search-wrap input {
+      width: 100%; padding: 12px 16px; min-height: 48px; border: 1.5px solid var(--border-input);
+      border-radius: 999px; font-size: 15px; font-family: inherit; background: #fff;
+    }
+    .search-wrap input:focus { outline: none; border-color: var(--kwa-secondary); box-shadow: 0 0 0 4px rgba(21,88,166,.16); }
+    .filter-controls-left { display: block; }
+    .filter-controls-left label { display: block; font-size: 13.5px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+
+    .cashbook-table-wrapper {
+      max-height: 72vh; overflow: auto; border: 1px solid #cbd5e1; border-radius: var(--radius-sm); background: #fff;
+    }
+    table.cb-table { width: 100%; min-width: 1500px; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+    table.cb-table th, table.cb-table td {
+      border-bottom: 1px solid #e8edf3; border-right: 1px solid #f1f5f9; padding: 9px 8px; text-align: left;
+      vertical-align: middle; white-space: normal; word-break: break-word;
+    }
+    table.cb-table th {
+      background: #1e293b; color: #fff; font-weight: 600; position: sticky; top: 0; z-index: 2;
+      text-transform: uppercase; font-size: 11px; letter-spacing: .4px; border-bottom: 2px solid #0f172a;
+    }
+    table.cb-table thead tr:nth-child(1) th { font-size: 12.5px; letter-spacing: .8px; padding: 11px 8px; }
+    table.cb-table thead tr:nth-child(1) th:nth-child(1) { background: #047857 !important; }
+    table.cb-table thead tr:nth-child(1) th:nth-child(3) { background: #b91c1c !important; }
+    table.cb-table thead tr:nth-child(2) th { top: 41px; }
+    table.cb-table tbody tr { transition: background-color .12s; }
+    table.cb-table tbody tr:hover { background-color: #e0f2fe !important; }
+    table.cb-table td.num { white-space: nowrap; }
+
+    .table-separator { width: 8px !important; padding: 0 !important; background: #94a3b8 !important; border: none !important; }
     .center { text-align: center !important; }
-    .num { text-align: right !important; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', monospace; }
-    .blank-cell { background-color: #fafafa !important; }
-    .desc-subtext { display: block; font-size: 10px; color: #64748b; font-style: italic; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; }
-    .standalone-green-text { color: #059669 !important; font-weight: 600; }
+    .num { text-align: right !important; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', ui-monospace, Consolas, monospace; }
+    .blank-cell { background-color: #fafbfc !important; }
+    .desc-subtext { display: block; font-size: 11.5px; color: var(--text-muted); font-style: italic; margin-top: 2px; }
+    .standalone-green-text { color: var(--green-credit) !important; font-weight: 600; }
+
+    /* ---------- SweetAlert polish ---------- */
+    .swal2-popup { border-radius: 16px !important; font-family: inherit !important; }
+    .swal2-styled { border-radius: 10px !important; font-weight: 600 !important; }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 720px) {
+      .container { padding: 0 12px 30px; }
+      .app-banner { margin: 0 -12px 16px; padding: 12px 14px; }
+      .banner-left h1 { font-size: 15px; }
+      .card { padding: 18px 16px; }
+      .grid-form { grid-template-columns: 1fr; }
+      .grid-form > .form-group[style*="span 2"] { grid-column: auto !important; }
+      .top-action-bar .btn { flex: 1 1 45%; }
+      .form-actions .btn { flex: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- TOP BANNER: ONLY HOME BUTTON IN HEADER -->
+    <!-- TOP BANNER -->
     <div class="app-banner">
       <div class="banner-left">
         <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
@@ -184,27 +262,31 @@
     </div>
 
     <!-- ENTRY FORM CARD -->
-    <div class="card">
+    <div class="card entry-card">
       <div class="card-header">
         <h3 id="formTitle">Record Transaction Entry</h3>
       </div>
       <form id="txnForm" onsubmit="handleFormSubmit(event)">
         <input type="hidden" id="editingMode" value="false">
 
-        <div class="grid-form" style="background: #f8fafc; padding: 14px 16px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 18px;">
-          <div class="form-group" style="grid-column: span 2;">
-            <label>Entry Mode *</label>
-            <select id="entryMode" onchange="handleEntryModeChange()">
-              <option value="Standalone">Standalone Voucher (Single CBR or CBV)</option>
-              <option value="Combined">Simultaneous CBV & Connected CBR Pair</option>
-            </select>
+        <div class="section-label"><span class="step-badge">1</span> What are you recording?</div>
+        <div class="mode-box">
+          <div class="grid-form">
+            <div class="form-group">
+              <label>Entry Mode *</label>
+              <select id="entryMode" onchange="handleEntryModeChange()">
+                <option value="Standalone">Standalone Voucher (Single CBR or CBV)</option>
+                <option value="Combined">Simultaneous CBV & Connected CBR Pair</option>
+              </select>
+            </div>
           </div>
         </div>
 
+        <div class="section-label"><span class="step-badge">2</span> Voucher details</div>
         <div class="grid-form">
           <div class="form-group">
             <label>Date *</label>
-            <input type="text" id="date" placeholder="dd-mm-yyyy" required onchange="onDateChange()">
+            <input type="text" id="date" placeholder="dd-mm-yyyy" required onchange="onDateChange()" inputmode="numeric" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Type *</label>
@@ -262,29 +344,32 @@
         </div>
 
         <!-- Itemized Ledger Line Items -->
+        <div class="section-label" style="margin-top: 24px;"><span class="step-badge">3</span> Amounts</div>
         <div class="items-container">
           <h4>Ledger Line Items</h4>
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th style="width: 28%;">Account Code *</th>
-                <th>Particulars / Head Description *</th>
-                <th style="width: 18%;">Amount (₹) *</th>
-                <th style="width: 60px;" class="center">Action</th>
-              </tr>
-            </thead>
-            <tbody id="itemsRows"></tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th style="width: 28%;">Account Code *</th>
+                  <th>Particulars / Head Description *</th>
+                  <th style="width: 18%;">Amount (₹) *</th>
+                  <th style="width: 60px;" class="center">Remove</th>
+                </tr>
+              </thead>
+              <tbody id="itemsRows"></tbody>
+            </table>
+          </div>
           <button type="button" class="btn btn-add" onclick="addItemRow()">+ Add Item Row</button>
         </div>
 
         <!-- SECONDARY SECTION FOR SIMULTANEOUS PAIRED VOUCHER -->
-        <div id="pairedVoucherSection" style="display: none; margin-top: 20px; border-top: 2px dashed #cbd5e1; padding-top: 16px;">
-          <h4 style="color: var(--kwa-secondary); margin-bottom: 12px; font-size: 14px; font-weight: 700;">Connected Receipt (CBR) Details for this Pair</h4>
+        <div id="pairedVoucherSection" class="paired-section" style="display: none;">
+          <h4 class="paired-title">Connected Receipt (CBR) Details for this Pair</h4>
           <div class="grid-form">
             <div class="form-group">
               <label>Connected CBR No *</label>
-              <input type="text" id="pairedSerialNo" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
+              <input type="text" id="pairedSerialNo" readonly>
             </div>
             <div class="form-group">
               <label>Received From / Particulars</label>
@@ -294,22 +379,24 @@
 
           <div class="items-container">
             <h4>Connected Ledger Line Items</h4>
-            <table class="items-table">
-              <thead>
-                <tr>
-                  <th style="width: 28%;">Account Code *</th>
-                  <th>Particulars / Head Description *</th>
-                  <th style="width: 18%;">Amount (₹) *</th>
-                  <th style="width: 60px;" class="center">Action</th>
-                </tr>
-              </thead>
-              <tbody id="pairedItemsRows"></tbody>
-            </table>
+            <div class="table-scroll">
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th style="width: 28%;">Account Code *</th>
+                    <th>Particulars / Head Description *</th>
+                    <th style="width: 18%;">Amount (₹) *</th>
+                    <th style="width: 60px;" class="center">Remove</th>
+                  </tr>
+                </thead>
+                <tbody id="pairedItemsRows"></tbody>
+              </table>
+            </div>
             <button type="button" class="btn btn-add" onclick="addPairedItemRow()">+ Add Paired Item Row</button>
           </div>
         </div>
 
-        <div style="margin-top: 20px; display: flex; gap: 12px;">
+        <div class="form-actions">
           <button type="submit" class="btn" id="saveBtn">Save Entry</button>
           <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
         </div>
@@ -329,17 +416,19 @@
       </div>
 
       <div class="filter-controls-left">
-        <label>Search Transactions:</label>
-        <input type="text" id="cbSearchInput" placeholder="🔍 Search No, Code, Particulars, Description, Amount..." onkeyup="filterCashBookRows()">
+        <label for="cbSearchInput">Search Transactions</label>
+        <div class="search-wrap">
+          <input type="text" id="cbSearchInput" placeholder="🔍 Search No, Code, Particulars, Description, Amount..." onkeyup="filterCashBookRows()">
+        </div>
       </div>
 
       <div class="cashbook-table-wrapper">
         <table class="cb-table">
           <thead>
             <tr>
-              <th colspan="8" style="text-align: center; background-color: #0f172a; color: #ffffff; font-size: 11px; letter-spacing: 0.5px;">RECEIPTS SIDE (CBR)</th>
+              <th colspan="8" style="text-align: center;">RECEIPTS SIDE (CBR)</th>
               <th class="table-separator"></th>
-              <th colspan="9" style="text-align: center; background-color: #334155; color: #ffffff; font-size: 11px; letter-spacing: 0.5px;">PAYMENTS SIDE (CBV)</th>
+              <th colspan="9" style="text-align: center;">PAYMENTS SIDE (CBV)</th>
             </tr>
             <tr>
               <th style="width: 6.5%;">Date</th>
@@ -350,7 +439,7 @@
               <th class="num" style="width: 4.5%;">Drawing</th>
               <th class="num" style="width: 4.5%;">Non Oper.</th>
               <th style="width: 4.5%;" class="center">Action</th>
-              
+
               <th class="table-separator"></th>
 
               <th style="width: 6.5%;">Date</th>
