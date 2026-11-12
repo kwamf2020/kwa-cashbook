@@ -10,7 +10,6 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen p-6">
 
-  <!-- Top Banner -->
   <div class="bg-[#003366] text-white p-4 rounded-lg shadow-md flex justify-between items-center mb-6">
     <div>
       <h1 class="text-lg font-bold uppercase">Kerala Water Authority</h1>
@@ -30,14 +29,24 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Account Nickname *</label>
-          <input type="text" id="accountNickname" required placeholder="e.g. Establishment / OandM" 
-            class="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-900 outline-none">
+          <input type="text" id="accountNickname" required placeholder="e.g. Establishment / OandM" class="w-full px-3 py-2 border rounded text-sm">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Bank & Account No *</label>
-          <input type="text" id="bankAccountDetails" required placeholder="e.g. 57067992143 & SBI Thiruvalla" 
-            class="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-900 outline-none">
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Bank Name *</label>
+          <select id="bankName" required class="w-full px-3 py-2 border rounded text-sm bg-white">
+            <option value="State Bank of India">State Bank of India</option>
+            <option value="Punjab National Bank">Punjab National Bank</option>
+            <option value="Federal Bank">Federal Bank</option>
+            <option value="Indian Bank">Indian Bank</option>
+          </select>
         </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Account Number *</label>
+          <input type="text" id="accountNo" required placeholder="e.g. 57067992143" class="w-full px-3 py-2 border rounded text-sm">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Category *</label>
           <select id="bankCategory" required class="w-full px-3 py-2 border rounded text-sm bg-white">
@@ -45,23 +54,13 @@
             <option value="Non Operative">Non Operative Account</option>
           </select>
         </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Opening Balance (₹) *</label>
-          <input type="number" step="0.01" id="openingBalance" required value="0.00" 
-            class="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-900 outline-none">
+          <input type="number" step="0.01" id="openingBalance" required value="0.00" class="w-full px-3 py-2 border rounded text-sm">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Passbook Balance (₹) *</label>
-          <input type="number" step="0.01" id="passbookBalance" required value="0.00" 
-            class="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-900 outline-none">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Logo URL (Optional)</label>
-          <input type="text" id="logoUrl" placeholder="Image link" 
-            class="w-full px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-blue-900 outline-none">
+          <input type="number" step="0.01" id="passbookBalance" required value="0.00" class="w-full px-3 py-2 border rounded text-sm">
         </div>
       </div>
 
@@ -78,8 +77,10 @@
       <table class="w-full border-collapse text-xs">
         <thead>
           <tr class="bg-slate-800 text-white uppercase text-[10px]">
+            <th class="p-2 border text-center">Logo</th>
             <th class="p-2 border">Nickname</th>
-            <th class="p-2 border">Bank & Account Details</th>
+            <th class="p-2 border">Bank Name</th>
+            <th class="p-2 border">Account No</th>
             <th class="p-2 border">Category</th>
             <th class="p-2 border text-right">Opening Balance (₹)</th>
             <th class="p-2 border text-right">Passbook Balance (₹)</th>
@@ -87,7 +88,7 @@
           </tr>
         </thead>
         <tbody id="bankTableBody">
-          <tr><td colspan="6" class="p-4 text-center text-slate-500 italic">Loading bank accounts...</td></tr>
+          <tr><td colspan="8" class="p-4 text-center text-slate-500 italic">Loading bank accounts...</td></tr>
         </tbody>
       </table>
     </div>
@@ -98,32 +99,33 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_qGT19bz8IOnF4-vWCbk4aQ_UCcaBc9U';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    const bankLogos = {
+      "State Bank of India": "https://drive.google.com/uc?export=view&id=1epq0kaBXIMoZFB-fEWZ3SQcQNBuEwqib",
+      "Punjab National Bank": "https://drive.google.com/uc?export=view&id=1sPajG-NVVOpg2UQXOMMBSUy0C8HJ3wcB",
+      "Federal Bank": "https://drive.google.com/uc?export=view&id=1m8Y5D5Jak61WyyCrJuY1cZ3Y7W-7mgop",
+      "Indian Bank": "https://drive.google.com/uc?export=view&id=10tfiHP2ofwGCK2qc515fPWdWALK-lZ9L"
+    };
+
     let currentOfficeId = '';
 
     window.onload = async function() {
       const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) {
-        window.location.href = 'login.html';
-        return;
-      }
+      if (!session) { window.location.href = 'login.html'; return; }
       currentOfficeId = session.user.id;
       loadBanks();
     };
 
     async function loadBanks() {
       const tbody = document.getElementById('bankTableBody');
-      const { data, error } = await supabaseClient
-        .from('bank_master')
-        .select('*')
-        .eq('office_id', currentOfficeId);
+      const { data, error } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
 
       if (error) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Error loading banks: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Error loading banks: ${error.message}</td></tr>`;
         return;
       }
 
       if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">No bank accounts configured yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400 italic">No bank accounts configured yet.</td></tr>`;
         return;
       }
 
@@ -132,8 +134,10 @@
         const tr = document.createElement('tr');
         tr.className = "border-b hover:bg-slate-50";
         tr.innerHTML = `
+          <td class="p-2 border text-center"><img src="${b.logo_url}" alt="Logo" class="w-6 h-6 mx-auto object-contain"></td>
           <td class="p-2 border font-bold">${b.account_nickname}</td>
-          <td class="p-2 border">${b.bank_account_details}</td>
+          <td class="p-2 border">${b.bank_name}</td>
+          <td class="p-2 border font-mono">${b.account_no}</td>
           <td class="p-2 border">${b.category}</td>
           <td class="p-2 border text-right font-mono">₹${Number(b.opening_balance).toFixed(2)}</td>
           <td class="p-2 border text-right font-mono font-semibold text-emerald-600">₹${Number(b.passbook_balance).toFixed(2)}</td>
@@ -147,19 +151,20 @@
 
     async function handleBankSubmit(e) {
       e.preventDefault();
+      const bankName = document.getElementById('bankName').value;
 
       const newBank = {
         office_id: currentOfficeId,
         account_nickname: document.getElementById('accountNickname').value.trim(),
-        bank_account_details: document.getElementById('bankAccountDetails').value.trim(),
+        bank_name: bankName,
+        account_no: document.getElementById('accountNo').value.trim(),
         category: document.getElementById('bankCategory').value,
         opening_balance: parseFloat(document.getElementById('openingBalance').value || 0),
         passbook_balance: parseFloat(document.getElementById('passbookBalance').value || 0),
-        logo_url: document.getElementById('logoUrl').value.trim()
+        logo_url: bankLogos[bankName] || ''
       };
 
       const { error } = await supabaseClient.from('bank_master').insert([newBank]);
-
       if (error) {
         Swal.fire('Error', 'Failed to save bank: ' + error.message, 'error');
       } else {
@@ -170,15 +175,11 @@
     }
 
     async function deleteBank(id) {
-      const confirmRes = await Swal.fire({ title: 'Delete Bank?', text: 'Are you sure you want to remove this bank account setup?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444' });
+      const confirmRes = await Swal.fire({ title: 'Delete Bank?', text: 'Remove this bank account setup?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444' });
       if (!confirmRes.isConfirmed) return;
 
       const { error } = await supabaseClient.from('bank_master').delete().eq('id', id).eq('office_id', currentOfficeId);
-      if (error) {
-        Swal.fire('Error', 'Delete failed: ' + error.message, 'error');
-      } else {
-        loadBanks();
-      }
+      if (error) { Swal.fire('Error', 'Delete failed: ' + error.message, 'error'); } else { loadBanks(); }
     }
   </script>
 </body>
