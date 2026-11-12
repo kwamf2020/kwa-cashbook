@@ -22,7 +22,7 @@
       --text-main: #1e293b;
       --text-muted: #64748b;
     }
-    
+    body { display: none; } /* Hide body by default to prevent flash */
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: var(--bg-main); color: var(--text-main); }
     
     .banner { background: linear-gradient(135deg, #003366 0%, #004080 100%); color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,51,102,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
@@ -356,7 +356,7 @@
     let currentActiveMonth = '';
     let allOfficeTransactions = [];
 
-    window.onload = async function() {
+   window.onload = async function() {
       showLoading('Authenticating session...');
       const { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
       if (sessionErr || !session) {
@@ -379,7 +379,11 @@
         return;
       }
 
-      currentActiveMonth = officeSet.current_active_month; // e.g. 'October-2026'
+      // Session verified - now reveal the page body
+      document.body.style.display = 'block';
+      Swal.close();
+
+      currentActiveMonth = officeSet.current_active_month;
       document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
       document.getElementById('activeMonthDisplay').innerText = `Active Month: ${currentActiveMonth}`;
 
