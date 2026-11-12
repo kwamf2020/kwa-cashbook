@@ -35,6 +35,8 @@
     .btn-logout { background-color: #dc2626; border-color: #b91c1c; }
     .btn-logout:hover { background-color: #b91c1c; }
 
+    .active-month-badge { background: rgba(255, 255, 255, 0.2); padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,255,255,0.4); margin-top: 4px; display: inline-block; }
+
     .top-action-bar { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     
     .card { background: var(--card-bg); padding: 24px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1); margin-bottom: 24px; border: 1px solid var(--border-color); }
@@ -148,7 +150,7 @@
   <div class="banner">
     <div>
       <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
-      <h2>CASH BOOK MANAGEMENT ENGINE</h2>
+      <div id="activeMonthDisplay" class="active-month-badge">Active Month: Loading...</div>
     </div>
     <div class="nav-group">
       <a href="bankbalances.html" class="btn-home">🏦 Bank Balances</a>
@@ -351,6 +353,7 @@
     let masterAccountCodes = [];
     let masterBanks = [];
     let currentOfficeId = '';
+    let currentActiveMonth = '';
     let allOfficeTransactions = [];
 
     window.onload = async function() {
@@ -363,7 +366,7 @@
       }
       currentOfficeId = session.user.id;
 
-      // 1. Check if Office Setup is completed
+      // 1. Check Office Settings & Active Month
       const { data: officeSet, error: setErr } = await supabaseClient
         .from('office_settings')
         .select('*')
@@ -376,8 +379,9 @@
         return;
       }
 
-      // 2. Set Office Title & Header details from settings
+      currentActiveMonth = officeSet.current_active_month; // e.g. 'October-2026'
       document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
+      document.getElementById('activeMonthDisplay').innerText = `Active Month: ${currentActiveMonth}`;
 
       const now = new Date();
       const dd = String(now.getDate()).padStart(2, '0');
@@ -443,21 +447,6 @@
         console.error('Master Load Error:', err);
         Swal.fire('Error', 'Failed to load master data: ' + err.message, 'error');
       }
-    }
-
-    function refreshAccountCodeDropdowns() {
-      document.querySelectorAll('#itemsRows tr, #pairedItemsRows tr').forEach(tr => {
-        const selectCode = tr.querySelector('.item-code, .paired-item-code');
-        if (selectCode) {
-          const currentVal = selectCode.value;
-          let codeOptions = '<option value="">Select Code</option>';
-          masterAccountCodes.forEach(ac => {
-            const sel = String(ac.account_code) === String(currentVal) ? 'selected' : '';
-            codeOptions += `<option value="${escapeHtml(ac.account_code)}" ${sel}>${escapeHtml(ac.account_code)} - ${escapeHtml(ac.particulars)}</option>`;
-          });
-          selectCode.innerHTML = codeOptions;
-        }
-      });
     }
 
     function escapeHtml(str) {
@@ -621,10 +610,10 @@
       const clean = dateStr.replace(/\//g, '-');
       const parts = clean.split('-');
       if (parts.length !== 3) return '';
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
       const mIdx = parseInt(parts[1], 10) - 1;
       if (mIdx < 0 || mIdx > 11) return '';
-      return `${months[mIdx]}-${parts[2].slice(-2)}`;
+      return `${months[mIdx]}-${parts[2]}`;
     }
 
     function getNextSerialNumber(monthYear, type) {
@@ -672,16 +661,18 @@
 
     async function handleFormSubmit(e) {
       e.preventDefault();
-      const isEdit = document.getElementById('editingMode').value === 'true';
-      const entryMode = document.getElementById('entryMode').value;
       const dateVal = document.getElementById('date').value.trim();
-      const monthYear = formatMonthYear(dateVal);
+      const txnMonthYear = formatMonthYear(dateVal);
 
-      if (!monthYear) {
-        Swal.fire('Warning', 'Please enter a valid date in dd-mm-yyyy format.', 'warning');
+      // --- ACTIVE MONTH ENFORCEMENT ---
+      if (txnMonthYear.toLowerCase() !== currentActiveMonth.toLowerCase()) {
+        Swal.fire('Restricted Date', `Entries can only be recorded for the active month (${currentActiveMonth}). The entered date falls in ${txnMonthYear}.`, 'error');
         return;
       }
+      // -------------------------------
 
+      const isEdit = document.getElementById('editingMode').value === 'true';
+      const entryMode = document.getElementById('entryMode').value;
       const primaryType = document.getElementById('type').value; 
       const primarySerial = document.getElementById('serialNo').value.trim();
       const category = document.getElementById('category').value;
@@ -770,7 +761,7 @@
           txn_id: `TXN-${baseTs}-${idx + 1}`,
           office_id: currentOfficeId,
           date: dateVal,
-          month_year: monthYear,
+          month_year: txnMonthYear,
           type: primaryType,
           serial_no: primarySerial,
           linked_cbv: (primaryType === 'Receipt' && receiptSubtype === 'Recovery') ? linkedCbv : null,
@@ -795,7 +786,7 @@
               txn_id: `TXN-${pairedTs}-${idx + 1}`,
               office_id: currentOfficeId,
               date: dateVal,
-              month_year: monthYear,
+              month_year: txnMonthYear,
               type: 'Receipt',
               serial_no: pairedSerial,
               linked_cbv: primarySerial,
@@ -841,6 +832,7 @@
           .from('transactions')
           .select('*')
           .eq('office_id', currentOfficeId)
+          .eq('month_year', currentActiveMonth) // Filter strictly for active month
           .order('created_at', { ascending: true });
 
         if (error) throw error;
@@ -929,7 +921,7 @@
       combinedTbody.innerHTML = '';
 
       if (!pairs || pairs.length === 0) {
-        combinedTbody.innerHTML = `<tr><td colspan="18" style="text-align:center; padding:30px; color:#64748b; font-style:italic;">No Transactions found in Transactions table.</td></tr>`;
+        combinedTbody.innerHTML = `<tr><td colspan="18" style="text-align:center; padding:30px; color:#64748b; font-style:italic;">No Transactions found for active month (${currentActiveMonth}).</td></tr>`;
         return;
       }
 
@@ -1202,26 +1194,14 @@
 
     // --- REPORT GENERATORS ---
     async function promptMonthYear() {
-      const { value: monthYear } = await Swal.fire({
-        title: 'Select Report Month-Year',
-        input: 'text',
-        inputLabel: 'Enter Month and Year (e.g., Oct-26):',
-        inputValue: 'Oct-26',
-        showCancelButton: true,
-        inputValidator: (value) => {
-          if (!value) return 'You need to write a month-year!';
-        }
-      });
-      return monthYear;
+      return currentActiveMonth; // defaults to active month
     }
 
     async function exportCb27Excel() {
-      const monthYear = await promptMonthYear();
-      if (!monthYear) return;
-
+      const monthYear = currentActiveMonth;
       showLoading('Generating CB27 Excel...');
       try {
-        const txns = allOfficeTransactions.filter(t => t.month_year.toLowerCase() === monthYear.toLowerCase());
+        const txns = allOfficeTransactions;
         const { data: codes } = await supabaseClient.from('account_codes_master').select('*');
         const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
 
@@ -1292,12 +1272,10 @@
     }
 
     async function exportCb27Pdf() {
-      const monthYear = await promptMonthYear();
-      if (!monthYear) return;
-
+      const monthYear = currentActiveMonth;
       showLoading('Generating CB27 PDF...');
       try {
-        const txns = allOfficeTransactions.filter(t => t.month_year.toLowerCase() === monthYear.toLowerCase());
+        const txns = allOfficeTransactions;
         const { data: codes } = await supabaseClient.from('account_codes_master').select('*');
         const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
 
@@ -1456,11 +1434,9 @@
     }
 
     async function exportCb28Pdf() {
-      const monthYear = await promptMonthYear();
-      if (!monthYear) return;
-
+      const monthYear = currentActiveMonth;
       showLoading('Generating CB28 PDF...');
-      const txns = allOfficeTransactions.filter(t => t.month_year.toLowerCase() === monthYear.toLowerCase());
+      const txns = allOfficeTransactions;
       
       let printWindow = window.open('', '_blank');
       let html = `<html><head><title>CB28 - ${monthYear}</title><style>body{font-family:Arial;font-size:11px;padding:20px;} table{width:100%;border-collapse:collapse;margin-bottom:20px;} th,td{border:1px solid #000;padding:5px;font-size:10px;} th{background:#eee;}</style></head><body>`;
@@ -1490,7 +1466,7 @@
         const pairs = buildDoubleSidePairs(allOfficeTransactions);
         const wbData = [
           ["KERALA WATER AUTHORITY - PH DIVISION, THIRUVALLA"],
-          ["DOUBLE SIDED CASH BOOK VIEW"],
+          [`DOUBLE SIDED CASH BOOK VIEW (${currentActiveMonth})`],
           [],
           ["Receipt Date", "CBR No", "Acc Code", "Particulars", "Cash", "Drawing", "Non Op", " | ", "Payment Date", "CBV No", "Acc Code", "Particulars", "Cheque No", "Cash", "Drawing", "Non Op"]
         ];
@@ -1509,7 +1485,7 @@
         const ws = XLSX.utils.aoa_to_sheet(wbData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Double Side View");
-        XLSX.writeFile(wb, `Cash_Book_Ledger.xlsx`);
+        XLSX.writeFile(wb, `Cash_Book_${currentActiveMonth}.xlsx`);
         Swal.close();
       } catch (err) {
         Swal.close();
