@@ -3,345 +3,269 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KWA Cash Book Management</title>
-  <!-- SweetAlert2 CSS & JS -->
+  <title>KWA Cash Book Portal - Dashboard</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- SheetJS for Excel Generation -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  
   <style>
+
     :root {
-      --kwa-blue: #003366;
-      --kwa-header: #004080;
-      --bg-main: #f8fafc;
+      --kwa-primary: #003366;
+      --kwa-secondary: #004d99;
+      --kwa-accent: #0ea5e9;
+      --bg-page: #f1f5f9;
       --card-bg: #ffffff;
-      --border-color: #e2e8f0;
-      --text-main: #1e293b;
+      --text-dark: #0f172a;
       --text-muted: #64748b;
+      --border-light: #e2e8f0;
+      --green-credit: #059669;
+      --red-debit: #dc2626;
     }
-    body { display: none; } /* Hide body by default to prevent flash */
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: var(--bg-main); color: var(--text-main); }
-    
-    .banner { background: linear-gradient(135deg, #003366 0%, #004080 100%); color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,51,102,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .banner h1 { margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .banner h2 { margin: 4px 0 0 0; font-size: 13px; font-weight: 400; opacity: 0.85; }
-
-    .nav-group { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .btn-home { background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; font-size: 13px; border-radius: 6px; text-decoration: none; font-weight: 600; transition: all 0.2s; cursor: pointer; }
-    .btn-home:hover { background-color: rgba(255,255,255,0.25); }
-    .btn-logout { background-color: #dc2626; border-color: #b91c1c; }
-    .btn-logout:hover { background-color: #b91c1c; }
-
-    .active-month-badge { background: rgba(255, 255, 255, 0.2); padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,255,255,0.4); margin-top: 4px; display: inline-block; }
-
-    .top-action-bar { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-    
-    .card { background: var(--card-bg); padding: 24px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1); margin-bottom: 24px; border: 1px solid var(--border-color); }
-    .card h3 { margin-top: 0; color: var(--kwa-header); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 17px; font-weight: 600; }
-    
-    .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px; }
-    .form-group { display: flex; flex-direction: column; }
-    .form-group label { font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #475569; }
-    .form-group input, .form-group select { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background-color: #fff; transition: border-color 0.2s, box-shadow 0.2s; }
-    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--kwa-blue); box-shadow: 0 0 0 3px rgba(0,51,102,0.1); }
-    .form-group input:disabled, .form-group select:disabled { background-color: #f1f5f9; cursor: not-allowed; opacity: 0.7; }
-    
-    input[type=number]::-webkit-inner-spin-button, 
-    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-    input[type=number] { -moz-appearance: textfield; }
-
-    .btn { background-color: var(--kwa-blue); color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; transition: background-color 0.2s; }
-    .btn:hover { background-color: #002244; }
-    .btn-secondary { background-color: #10b981; }
-    .btn-secondary:hover { background-color: #059669; }
-    .btn-cb28 { background-color: #2563eb; }
-    .btn-cb28:hover { background-color: #1d4ed8; }
-    .btn-pdf { background-color: #7c3aed; }
-    .btn-pdf:hover { background-color: #6d28d9; }
-    .btn-excel { background-color: #059669; }
-    .btn-excel:hover { background-color: #047857; }
-    .btn-danger { background-color: #ef4444; padding: 6px 10px; font-size: 12px; margin-top: 0; border-radius: 4px; }
-    .btn-danger:hover { background-color: #dc2626; }
-    .btn-add { background-color: #0ea5e9; padding: 6px 12px; font-size: 12px; margin-top: 8px; border-radius: 4px; }
-    .btn-add:hover { background-color: #0284c7; }
-    
-    .btn-action { padding: 4px 6px; font-size: 11px; border-radius: 3px; margin: 0 1px; cursor: pointer; border: none; color: white; transition: opacity 0.2s; }
-    .btn-action:hover { opacity: 0.85; }
-    .btn-edit { background-color: #f59e0b; color: #fff; }
-    .btn-delete { background-color: #ef4444; }
-    .action-cell { white-space: nowrap; text-align: center; }
-
-    .filter-controls-left { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; margin-top: 10px; flex-wrap: wrap; }
-    .filter-controls-left label { font-size: 13px; font-weight: 600; color: #475569; }
-    .filter-controls-left input { padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
-
-    .items-container { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background-color: #f8fafc; margin-top: 12px; }
-    .items-container h4 { margin: 0 0 12px 0; font-size: 13px; color: var(--kwa-header); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    table.items-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-    table.items-table th, table.items-table td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; text-align: left; background: #fff; }
-    table.items-table th { background-color: #f1f5f9; color: #334155; font-weight: 600; }
-    table.items-table select, table.items-table input { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; }
-
-    .cashbook-table-wrapper { 
-      max-height: 650px; 
-      overflow-y: auto; 
-      overflow-x: hidden;
-      border: 1px solid #cbd5e1; 
-      border-radius: 8px;
-      box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);
-      background: #fff;
+    * { box-sizing: border-box; }
+    body { 
+      display: none; /* Hidden until auth verified */
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background-color: var(--bg-page); 
+      color: var(--text-dark);
+      line-height: 1.5;
     }
-
-    table.cb-table { 
-      width: 100%; 
-      table-layout: fixed;
-      border-collapse: collapse; 
-      font-size: 11px;
-      white-space: nowrap; 
-    }
+    .container { max-width: 1440px; margin: 0 auto; }
     
-    table.cb-table th, table.cb-table td { 
-      border-bottom: 1px solid #e2e8f0; 
-      border-right: 1px solid #f1f5f9; 
-      padding: 6px 4px;
-      text-align: left; 
-      background-color: transparent; 
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    table.cb-table th { 
-      background-color: #1e293b; 
+    /* Unified Modern Banner */
+    .app-banner { 
+      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
       color: #ffffff; 
+      padding: 18px 24px; 
+      border-radius: 10px; 
+      margin-bottom: 24px; 
+      box-shadow: 0 4px 12px rgba(0, 51, 102, 0.15); 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      flex-wrap: wrap; 
+      gap: 12px; 
+    }
+    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .banner-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+    .banner-subtitle { font-size: 13px; opacity: 0.9; font-weight: 500; }
+    .active-month-pill { 
+      background: rgba(255, 255, 255, 0.18); 
+      border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 2px 10px; 
+      border-radius: 999px; 
+      font-size: 12px; 
       font-weight: 600; 
-      position: sticky; 
-      top: 0; 
-      z-index: 2; 
-      text-transform: uppercase; 
-      font-size: 10px; 
-      letter-spacing: 0.3px;
-      border-bottom: 2px solid #0f172a;
     }
     
-    table.cb-table tbody tr { transition: background-color 0.15s ease; }
-    table.cb-table tbody tr:hover { background-color: #f8fafc !important; }
+    /* Header Navigation Buttons */
+    .btn-nav-home { 
+      background-color: rgba(255, 255, 255, 0.15); 
+      color: #ffffff; 
+      border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 8px 16px; 
+      font-size: 13px; 
+      border-radius: 6px; 
+      text-decoration: none; 
+      font-weight: 600; 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 6px; 
+      transition: all 0.2s ease; 
+      cursor: pointer; 
+    }
+    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
+    .btn-signout { background-color: #dc2626; border-color: #b91c1c; }
+    .btn-signout:hover { background-color: #b91c1c; }
 
-    .table-separator {
-      width: 6px !important;
-      padding: 0 !important;
-      background-color: #cbd5e1 !important;
-      border-left: 1px solid #94a3b8 !important;
-      border-right: 1px solid #94a3b8 !important;
+    /* Cards & Containers */
+    .card { 
+      background: var(--card-bg); 
+      padding: 22px 24px; 
+      border-radius: 10px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); 
+      margin-bottom: 24px; 
+      border: 1px solid var(--border-light); 
+    }
+    .card-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      border-bottom: 2px solid var(--border-light); 
+      padding-bottom: 12px; 
+      margin-bottom: 18px; 
+      flex-wrap: wrap; 
+      gap: 10px; 
+    }
+    .card-header h3 { margin: 0; color: var(--kwa-primary); font-size: 17px; font-weight: 700; }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+    .kpi-box {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 18px 20px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+      border-top: 4px solid var(--kwa-primary);
+    }
+    .kpi-box.cash { border-top-color: #0ea5e9; }
+    .kpi-box.drawing { border-top-color: #2563eb; }
+    .kpi-box.nop { border-top-color: #7c3aed; }
+    .kpi-title { font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.6px; }
+    .kpi-num { font-size: 22px; font-weight: 700; color: var(--text-dark); margin-top: 6px; font-variant-numeric: tabular-nums; }
+    .kpi-num.neg { color: var(--red-debit); }
+
+    .section-label {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
     }
 
-    .center { text-align: center !important; }
-    .num { text-align: right !important; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', monospace; }
-    .blank-cell { background-color: #fafafa !important; }
-    .desc-subtext { display: block; font-size: 10px; color: #64748b; font-style: italic; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; }
-    .standalone-green-text { color: #059669 !important; font-weight: 600; }
+    .tiles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .nav-tile {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 26px 24px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.22s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .nav-tile::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 5px;
+      background: var(--kwa-primary);
+      transition: width 0.2s ease;
+    }
+    .nav-tile.tile-cb::before { background: #003366; }
+    .nav-tile.tile-bank::before { background: #059669; }
+    .nav-tile.tile-tax::before { background: #7c3aed; }
+    
+    .nav-tile:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0, 51, 102, 0.12);
+      border-color: #cbd5e1;
+    }
+    .tile-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+    .tile-cb .tile-icon { background: #e0f2fe; color: #0369a1; }
+    .tile-bank .tile-icon { background: #d1fae5; color: #047857; }
+    .tile-tax .tile-icon { background: #ede9fe; color: #6d28d9; }
+
+    .nav-tile h2 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--kwa-primary);
+    }
+    .nav-tile p {
+      margin: 0 0 18px 0;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .tile-action {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--kwa-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-tile:hover .tile-action { gap: 10px; }
   </style>
 </head>
 <body>
-
-  <!-- TOP BANNER -->
-  <div class="banner">
-    <div>
-      <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
-      <div id="activeMonthDisplay" class="active-month-badge">Active Month: Loading...</div>
-    </div>
-    <div class="nav-group">
-      <a href="bankbalances.html" class="btn-home">🏦 Bank Balances</a>
-      <a href="taxview.html" class="btn-home">📊 Tax Report</a>
-      <button onclick="logout()" class="btn-home btn-logout">Sign Out</button>
-    </div>
-  </div>
-
-  <!-- ENTRY FORM CARD -->
-  <div class="card">
-    <h3 id="formTitle">Record Transaction Entry</h3>
-    <form id="txnForm" onsubmit="handleFormSubmit(event)">
-      <input type="hidden" id="editingMode" value="false">
-
-      <div class="grid-form" style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 20px;">
-        <div class="form-group" style="grid-column: span 2;">
-          <label>Entry Mode *</label>
-          <select id="entryMode" onchange="handleEntryModeChange()">
-            <option value="Standalone">Standalone Voucher (Single CBR or CBV)</option>
-            <option value="Combined">Simultaneous CBV & Connected CBR Pair</option>
-          </select>
+  <div class="container">
+    <div class="app-banner">
+      <div class="banner-left">
+        <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
+        <div class="banner-meta">
+          <span class="banner-subtitle">Cash Book & Financial Management Portal</span>
+          <span class="active-month-pill" id="activeMonthDisplay">Active Month: Loading...</span>
         </div>
       </div>
-
-      <div class="grid-form">
-        <div class="form-group">
-          <label>Date *</label>
-          <input type="text" id="date" placeholder="dd-mm-yyyy" required onchange="onDateChange()">
-        </div>
-        <div class="form-group">
-          <label>Type *</label>
-          <select id="type" required onchange="handleTypeChange()">
-            <option value="Receipt">Receipt (CBR)</option>
-            <option value="Payment">Payment (CBV)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label id="serialNoLabel">CBR No *</label>
-          <input type="text" id="serialNo" required>
-        </div>
-        <div class="form-group" id="receiptSubtypeGroup">
-          <label>Receipt Type *</label>
-          <select id="receiptSubtype" onchange="handleReceiptSubtypeChange()">
-            <option value="Direct Cash">Direct Cash Receipt</option>
-            <option value="Direct Bank">Direct Bank Deposit</option>
-            <option value="Recovery">Recovery / Adjustment against CBV</option>
-          </select>
-        </div>
-        <div class="form-group" id="linkedCbvGroup" style="display: none;">
-          <label>Linked CBV Voucher No *</label>
-          <input type="text" id="linkedCbv" placeholder="e.g. 15" onblur="autoFetchCbvDetails()">
-        </div>
-        <div class="form-group">
-          <label>Account Mode / Category *</label>
-          <select id="category" required onchange="handleCategoryChange()">
-            <option value="Cash">Cash Counter / Drawer</option>
-            <option value="Drawing">Drawing Account</option>
-            <option value="Non Operative">Non Operative Account</option>
-          </select>
-        </div>
-        <div class="form-group" id="bankNickGroup">
-          <label>Bank Nickname *</label>
-          <select id="bankNickname">
-            <option value="">Select Bank Account</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Cheque No / Ref No</label>
-          <input type="text" id="chequeNo" placeholder="Optional">
-        </div>
-        <div class="form-group" id="payeeGroup">
-          <label id="payeeLabel">Payee / Paid To</label>
-          <input type="text" id="payee" placeholder="e.g. Name / Firm / Contractor">
-        </div>
-        <div class="form-group" id="descriptionGroup">
-          <label>General Description / Voucher Remarks</label>
-          <input type="text" id="description" placeholder="e.g. General description of transaction">
-        </div>
-        <div class="form-group" id="gstGroup" style="display: none;">
-          <label>GST Amount (₹) [Optional]</label>
-          <input type="number" id="gstAmount" step="0.01" placeholder="0.00">
-        </div>
-      </div>
-
-      <!-- Itemized Ledger Line Items -->
-      <div class="items-container">
-        <h4>Ledger Line Items</h4>
-        <table class="items-table">
-          <thead>
-            <tr>
-              <th style="width: 25%;">Account Code *</th>
-              <th>Particulars / Head Description *</th>
-              <th style="width: 20%;">Amount (₹) *</th>
-              <th style="width: 60px;" class="center">Action</th>
-            </tr>
-          </thead>
-          <tbody id="itemsRows"></tbody>
-        </table>
-        <button type="button" class="btn btn-add" onclick="addItemRow()">+ Add Item Row</button>
-      </div>
-
-      <!-- SECONDARY SECTION FOR SIMULTANEOUS PAIRED VOUCHER -->
-      <div id="pairedVoucherSection" style="display: none; margin-top: 20px; border-top: 2px dashed #cbd5e1; padding-top: 16px;">
-        <h4 style="color: var(--kwa-header); margin-bottom: 12px; font-size: 14px; font-weight: 600;">Connected Receipt (CBR) Details for this Pair</h4>
-        <div class="grid-form">
-          <div class="form-group">
-            <label>Connected CBR No *</label>
-            <input type="text" id="pairedSerialNo" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
-          </div>
-          <div class="form-group">
-            <label>Received From / Particulars</label>
-            <input type="text" id="pairedPayee" placeholder="e.g. Source of receipt">
-          </div>
-        </div>
-
-        <div class="items-container">
-          <h4>Connected Ledger Line Items</h4>
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th style="width: 25%;">Account Code *</th>
-                <th>Particulars / Head Description *</th>
-                <th style="width: 20%;">Amount (₹) *</th>
-                <th style="width: 60px;" class="center">Action</th>
-              </tr>
-            </thead>
-            <tbody id="pairedItemsRows"></tbody>
-          </table>
-          <button type="button" class="btn btn-add" onclick="addPairedItemRow()">+ Add Paired Item Row</button>
-        </div>
-      </div>
-
-      <div style="margin-top: 20px; display: flex; gap: 12px;">
-        <button type="submit" class="btn" id="saveBtn">Save Entry</button>
-        <button type="button" class="btn btn-secondary" onclick="resetForm()" style="background-color: #64748b;">Reset</button>
-      </div>
-    </form>
-  </div>
-
-  <!-- CASH BOOK VIEW SECTION -->
-  <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-      <h3 style="border: none; margin: 0;">Cash Book Transaction Ledger</h3>
-      
-      <div class="top-action-bar" style="margin-bottom: 0;">
-        <button class="btn btn-pdf" onclick="exportCb27Pdf()">📄 Export CB27 PDF</button>
-        <button class="btn btn-excel" onclick="exportCb27Excel()">📊 Export CB27 Excel</button>
-        <button class="btn btn-cb28" onclick="exportCb28Pdf()">📄 Export CB28 PDF</button>
-        <button class="btn btn-excel" onclick="exportDoubleSideExcel()">📊 Double-Side Excel</button>
+      <div>
+        <button onclick="logout()" class="btn-nav-home btn-signout">Sign Out</button>
       </div>
     </div>
 
-    <div class="filter-controls-left">
-      <label>Search Transactions:</label>
-      <input type="text" id="cbSearchInput" placeholder="🔍 Search No, Code, Particulars, Description, Amount..." onkeyup="filterCashBookRows()" style="width: 380px;">
+    <!-- Live Summary Strip -->
+    <div class="kpi-row">
+      <div class="kpi-box cash">
+        <div class="kpi-title">Live Cash Balance</div>
+        <div class="kpi-num" id="dashCash">₹ 0.00</div>
+      </div>
+      <div class="kpi-box drawing">
+        <div class="kpi-title">Live Drawing Account Balance</div>
+        <div class="kpi-num" id="dashDrawing">₹ 0.00</div>
+      </div>
+      <div class="kpi-box nop">
+        <div class="kpi-title">Live Non-Operative Balance</div>
+        <div class="kpi-num" id="dashNop">₹ 0.00</div>
+      </div>
     </div>
 
-    <!-- COMBINED TABLE CONTAINER -->
-    <div class="cashbook-table-wrapper">
-      <table class="cb-table">
-        <thead>
-          <tr>
-            <th colspan="8" style="text-align: center; background-color: #0f172a; color: #ffffff; font-size: 11px; letter-spacing: 0.5px;">RECEIPTS SIDE (CBR)</th>
-            <th class="table-separator"></th>
-            <th colspan="9" style="text-align: center; background-color: #334155; color: #ffffff; font-size: 11px; letter-spacing: 0.5px;">PAYMENTS SIDE (CBV)</th>
-          </tr>
-          <tr>
-            <th style="width: 6.5%;">Date</th>
-            <th style="width: 6.5%;">CBR No</th>
-            <th style="width: 4%;">Code</th>
-            <th style="width: 12%;">Particulars</th>
-            <th class="num" style="width: 4.5%;">Cash</th>
-            <th class="num" style="width: 4.5%;">Drawing</th>
-            <th class="num" style="width: 4.5%;">Non Oper.</th>
-            <th style="width: 4.5%;" class="center">Action</th>
-            
-            <th class="table-separator"></th>
+    <div class="section-label">Select Module</div>
+    <div class="tiles-grid">
+      <!-- Tile 1: Cash Book -->
+      <a href="cashbook.html" class="nav-tile tile-cb">
+        <div>
+          <div class="tile-icon">📒</div>
+          <h2>Cash Book Ledger</h2>
+          <p>Record daily CBR receipts & CBV payments, manage paired vouchers, and generate CB27 & CB28 monthly abstracts.</p>
+        </div>
+        <div class="tile-action">Open Cash Book →</div>
+      </a>
 
-            <th style="width: 6.5%;">Date</th>
-            <th style="width: 6.5%;">CBV No</th>
-            <th style="width: 4%;">Code</th>
-            <th style="width: 11%;">Particulars</th>
-            <th style="width: 6%;" class="center">Cheque</th>
-            <th class="num" style="width: 4.5%;">Cash</th>
-            <th class="num" style="width: 4.5%;">Drawing</th>
-            <th class="num" style="width: 4.5%;">Non Oper.</th>
-            <th style="width: 4.5%;" class="center">Action</th>
-          </tr>
-        </thead>
-        <tbody id="cashBookCombinedRows"></tbody>
-      </table>
+      <!-- Tile 2: Bank Balances -->
+      <a href="bankbalances.html" class="nav-tile tile-bank">
+        <div>
+          <div class="tile-icon">🏦</div>
+          <h2>Bank Balances & Statements</h2>
+          <p>Monitor live balances across Cash, Drawing, and Non-Operative accounts with itemized descending statements.</p>
+        </div>
+        <div class="tile-action">View Account Balances →</div>
+      </a>
+
+      <!-- Tile 3: Tax Report -->
+      <a href="taxview.html" class="nav-tile tile-tax">
+        <div>
+          <div class="tile-icon">📊</div>
+          <h2>Tax & Recovery Report</h2>
+          <p>Review consolidated statutory deductions, GST/TDS recoveries, and account-head wise recovery schedules.</p>
+        </div>
+        <div class="tile-action">Open Tax Report →</div>
+      </a>
     </div>
   </div>
 
@@ -350,1154 +274,78 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_qGT19bz8IOnF4-vWCbk4aQ_UCcaBc9U';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let masterAccountCodes = [];
-    let masterBanks = [];
-    let currentOfficeId = '';
-    let currentActiveMonth = '';
-    let allOfficeTransactions = [];
-let currentOfficeName = '';
-   window.onload = async function() {
-      showLoading('Authenticating session...');
+    function formatINR(amount) {
+      return (Number(amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    window.onload = async function() {
       const { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
       if (sessionErr || !session) {
-        Swal.close();
         window.location.href = 'login.html';
         return;
       }
-      currentOfficeId = session.user.id;
+      const officeId = session.user.id;
 
-      // 1. Check Office Settings & Active Month
       const { data: officeSet, error: setErr } = await supabaseClient
         .from('office_settings')
         .select('*')
-        .eq('office_id', currentOfficeId)
+        .eq('office_id', officeId)
         .single();
 
       if (!officeSet || setErr) {
-        Swal.close();
         window.location.href = 'setup.html';
         return;
       }
 
-      // Session verified - now reveal the page body
       document.body.style.display = 'block';
-      Swal.close();
-
-      currentActiveMonth = officeSet.current_active_month;
-           currentOfficeName = officeSet.office_name;
       document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
-      document.getElementById('activeMonthDisplay').innerText = `Active Month: ${currentActiveMonth}`;
+      document.getElementById('activeMonthDisplay').innerText = `Active Month: ${officeSet.current_active_month}`;
 
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yyyy = now.getFullYear();
-      document.getElementById('date').value = `${dd}-${mm}-${yyyy}`;
-
-      document.addEventListener('wheel', function(e) {
-        if (document.activeElement.type === 'number') {
-          document.activeElement.blur();
-        }
-      }, { passive: false });
-
-      handleCategoryChange();
-      await loadInitialMasters();
-      await loadCashBookData();
+      loadQuickBalances(officeId);
     };
 
-    function showLoading(title = 'Processing...') {
-      Swal.fire({
-        title: title,
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-      });
-    }
-
-    async function loadInitialMasters() {
-      showLoading('Loading configuration & masters...');
+    async function loadQuickBalances(officeId) {
       try {
-        const { data: codesData, error: codesErr } = await supabaseClient
-          .from('account_codes_master')
-          .select('*')
-          .order('account_code', { ascending: true });
-
-        if (codesErr) throw codesErr;
-        masterAccountCodes = codesData || [];
-
-        const { data: banksData, error: banksErr } = await supabaseClient
-          .from('bank_master')
-          .select('*')
-          .eq('office_id', currentOfficeId);
-
-        if (banksErr) throw banksErr;
-        masterBanks = banksData || [];
-
-        const bankSelect = document.getElementById('bankNickname');
-        bankSelect.innerHTML = '<option value="">Select Bank Account</option>';
-        masterBanks.forEach(b => {
-          bankSelect.innerHTML += `<option value="${escapeHtml(b.account_nickname)}">${escapeHtml(b.account_nickname)} (${escapeHtml(b.category)})</option>`;
-        });
-
-        const tbody = document.getElementById('itemsRows');
-        tbody.innerHTML = '';
-        addItemRow();
-
-        const pairedTbody = document.getElementById('pairedItemsRows');
-        pairedTbody.innerHTML = '';
-        addPairedItemRow();
-
-        Swal.close();
-      } catch (err) {
-        Swal.close();
-        console.error('Master Load Error:', err);
-        Swal.fire('Error', 'Failed to load master data: ' + err.message, 'error');
-      }
-    }
-
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function addItemRow(code = '', particulars = '', amount = '') {
-      const tbody = document.getElementById('itemsRows');
-      const rowId = 'row_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-      
-      let codeOptions = '<option value="">Select Code</option>';
-      masterAccountCodes.forEach(ac => {
-        const sel = String(ac.account_code) === String(code) ? 'selected' : '';
-        codeOptions += `<option value="${escapeHtml(ac.account_code)}" ${sel}>${escapeHtml(ac.account_code)} - ${escapeHtml(ac.particulars)}</option>`;
-      });
-
-      const tr = document.createElement('tr');
-      tr.id = rowId;
-      tr.innerHTML = `
-        <td><select class="item-code" onchange="autoFillParticulars('${rowId}')">${codeOptions}</select></td>
-        <td><input type="text" class="item-particulars" value="${escapeHtml(particulars)}" placeholder="Particulars description"></td>
-        <td><input type="number" step="0.01" class="item-amount" value="${amount}" placeholder="0.00"></td>
-        <td style="text-align:center;"><button type="button" class="btn btn-danger" onclick="removeItemRow('${rowId}')">✕</button></td>
-      `;
-      tbody.appendChild(tr);
-    }
-
-    function addPairedItemRow(code = '', particulars = '', amount = '') {
-      const tbody = document.getElementById('pairedItemsRows');
-      const rowId = 'p_row_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-      
-      let codeOptions = '<option value="">Select Code</option>';
-      masterAccountCodes.forEach(ac => {
-        const sel = String(ac.account_code) === String(code) ? 'selected' : '';
-        codeOptions += `<option value="${escapeHtml(ac.account_code)}" ${sel}>${escapeHtml(ac.account_code)} - ${escapeHtml(ac.particulars)}</option>`;
-      });
-
-      const tr = document.createElement('tr');
-      tr.id = rowId;
-      tr.innerHTML = `
-        <td><select class="paired-item-code" onchange="autoFillPairedParticulars('${rowId}')">${codeOptions}</select></td>
-        <td><input type="text" class="paired-item-particulars" value="${escapeHtml(particulars)}" placeholder="Particulars description"></td>
-        <td><input type="number" step="0.01" class="paired-item-amount" value="${amount}" placeholder="0.00"></td>
-        <td style="text-align:center;"><button type="button" class="btn btn-danger" onclick="removePairedItemRow('${rowId}')">✕</button></td>
-      `;
-      tbody.appendChild(tr);
-    }
-
-    function removeItemRow(rowId) {
-      const tbody = document.getElementById('itemsRows');
-      if (tbody.children.length > 1) {
-        document.getElementById(rowId)?.remove();
-      } else {
-        Swal.fire('Warning', 'At least one line item is required.', 'warning');
-      }
-    }
-
-    function removePairedItemRow(rowId) {
-      const tbody = document.getElementById('pairedItemsRows');
-      if (tbody.children.length > 1) {
-        document.getElementById(rowId)?.remove();
-      } else {
-        Swal.fire('Warning', 'At least one line item is required for the paired voucher.', 'warning');
-      }
-    }
-
-    function autoFillParticulars(rowId) {
-      const row = document.getElementById(rowId);
-      if (!row) return;
-      const codeVal = row.querySelector('.item-code').value;
-      const partInput = row.querySelector('.item-particulars');
-      const match = masterAccountCodes.find(ac => String(ac.account_code) === String(codeVal));
-      if (match) partInput.value = match.particulars;
-    }
-
-    function autoFillPairedParticulars(rowId) {
-      const row = document.getElementById(rowId);
-      if (!row) return;
-      const codeVal = row.querySelector('.paired-item-code').value;
-      const partInput = row.querySelector('.paired-item-particulars');
-      const match = masterAccountCodes.find(ac => String(ac.account_code) === String(codeVal));
-      if (match) partInput.value = match.particulars;
-    }
-
-    function handleEntryModeChange() {
-      const mode = document.getElementById('entryMode').value;
-      const pairedSection = document.getElementById('pairedVoucherSection');
-      const typeSelect = document.getElementById('type');
-      
-      if (mode === 'Combined') {
-        pairedSection.style.display = 'block';
-        typeSelect.value = 'Payment';
-        typeSelect.disabled = true;
-        handleTypeChange();
-        autoFetchSerialNo();
-      } else {
-        pairedSection.style.display = 'none';
-        typeSelect.disabled = false;
-        handleTypeChange();
-      }
-    }
-
-    function handleTypeChange() {
-      const type = document.getElementById('type').value;
-      const serialLabel = document.getElementById('serialNoLabel');
-      const payeeLabel = document.getElementById('payeeLabel');
-      const receiptSubtypeGroup = document.getElementById('receiptSubtypeGroup');
-      const linkedCbvGroup = document.getElementById('linkedCbvGroup');
-      const gstGroup = document.getElementById('gstGroup');
-
-      if (type === 'Receipt') {
-        serialLabel.innerText = 'CBR No *';
-        if (payeeLabel) payeeLabel.innerText = 'Received From';
-        receiptSubtypeGroup.style.display = 'flex';
-        gstGroup.style.display = 'none';
-        document.getElementById('gstAmount').value = '';
-        handleReceiptSubtypeChange();
-      } else {
-        serialLabel.innerText = 'CBV No *';
-        if (payeeLabel) payeeLabel.innerText = 'Payee / Paid To';
-        receiptSubtypeGroup.style.display = 'none';
-        linkedCbvGroup.style.display = 'none';
-        gstGroup.style.display = 'flex';
-      }
-      
-      if (document.getElementById('editingMode').value !== 'true') {
-        autoFetchSerialNo();
-      }
-    }
-
-    function handleReceiptSubtypeChange() {
-      const subtype = document.getElementById('receiptSubtype').value;
-      const linkedCbvGroup = document.getElementById('linkedCbvGroup');
-      const catSelect = document.getElementById('category');
-
-      linkedCbvGroup.style.display = (subtype === 'Recovery') ? 'flex' : 'none';
-
-      if (subtype === 'Direct Cash') catSelect.value = 'Cash';
-      else if (subtype === 'Direct Bank') catSelect.value = 'Drawing';
-      handleCategoryChange();
-    }
-
-    function handleCategoryChange() {
-      const cat = document.getElementById('category').value;
-      document.getElementById('bankNickGroup').style.display = (cat === 'Cash') ? 'none' : 'flex';
-    }
-
-    function onDateChange() {
-      if (document.getElementById('editingMode').value !== 'true') {
-        autoFetchSerialNo();
-      }
-    }
-
-    function formatMonthYear(dateStr) {
-      const clean = dateStr.replace(/\//g, '-');
-      const parts = clean.split('-');
-      if (parts.length !== 3) return '';
-      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-      const mIdx = parseInt(parts[1], 10) - 1;
-      if (mIdx < 0 || mIdx > 11) return '';
-      return `${months[mIdx]}-${parts[2]}`;
-    }
-
-    function getNextSerialNumber(monthYear, type) {
-      const filtered = allOfficeTransactions.filter(t => t.month_year === monthYear && t.type === type);
-      if (filtered.length === 0) return '1';
-      let maxNum = 0;
-      filtered.forEach(t => {
-        const num = parseInt(String(t.serial_no).replace(/\D/g, ''), 10);
-        if (!isNaN(num) && num > maxNum) maxNum = num;
-      });
-      return String(maxNum + 1);
-    }
-
-    function autoFetchSerialNo() {
-      if (document.getElementById('editingMode').value === 'true') return;
-      const dateStr = document.getElementById('date').value;
-      const type = document.getElementById('type').value;
-      const entryMode = document.getElementById('entryMode').value;
-      const monthYear = formatMonthYear(dateStr);
-
-      if (!monthYear || !type) return;
-
-      document.getElementById('serialNo').value = getNextSerialNumber(monthYear, type);
-
-      if (entryMode === 'Combined') {
-        document.getElementById('pairedSerialNo').value = getNextSerialNumber(monthYear, 'Receipt');
-      }
-    }
-
-    function autoFetchCbvDetails() {
-      const cbvNo = document.getElementById('linkedCbv').value.trim();
-      if (!cbvNo) return;
-
-      const match = allOfficeTransactions.find(t => 
-        t.type === 'Payment' && String(t.serial_no).trim().toLowerCase() === cbvNo.toLowerCase()
-      );
-      if (match) {
-        document.getElementById('category').value = match.category;
-        handleCategoryChange();
-        if (match.bank_nickname) {
-          document.getElementById('bankNickname').value = match.bank_nickname;
-        }
-      }
-    }
-
-    async function handleFormSubmit(e) {
-      e.preventDefault();
-      const dateVal = document.getElementById('date').value.trim();
-      const txnMonthYear = formatMonthYear(dateVal);
-
-      // --- ACTIVE MONTH ENFORCEMENT ---
-      if (txnMonthYear.toLowerCase() !== currentActiveMonth.toLowerCase()) {
-        Swal.fire('Restricted Date', `Entries can only be recorded for the active month (${currentActiveMonth}). The entered date falls in ${txnMonthYear}.`, 'error');
-        return;
-      }
-      // -------------------------------
-
-      const isEdit = document.getElementById('editingMode').value === 'true';
-      const entryMode = document.getElementById('entryMode').value;
-      const primaryType = document.getElementById('type').value; 
-      const primarySerial = document.getElementById('serialNo').value.trim();
-      const category = document.getElementById('category').value;
-      const bankNickname = category === 'Cash' ? '' : document.getElementById('bankNickname').value;
-      const chequeNo = document.getElementById('chequeNo').value.trim();
-      const payee = document.getElementById('payee').value.trim();
-      const description = document.getElementById('description').value.trim();
-      const gstAmount = parseFloat(document.getElementById('gstAmount').value || '0');
-      const receiptSubtype = document.getElementById('receiptSubtype').value;
-      const linkedCbv = document.getElementById('linkedCbv').value.trim();
-
-      const items = [];
-      document.querySelectorAll('#itemsRows tr').forEach(tr => {
-        const code = tr.querySelector('.item-code').value;
-        const particulars = tr.querySelector('.item-particulars').value.trim();
-        const amount = tr.querySelector('.item-amount').value;
-        if (code && particulars && amount) {
-          items.push({ accountCode: code, particulars, amount: parseFloat(amount) });
-        }
-      });
-
-      if (items.length === 0) {
-        Swal.fire('Warning', 'Please complete at least one line item entry for the voucher.', 'warning');
-        return;
-      }
-
-      let pairedItems = [];
-      let pairedSerial = '';
-      let pairedPayee = '';
-
-      if (entryMode === 'Combined' && !isEdit) {
-        pairedSerial = document.getElementById('pairedSerialNo').value.trim();
-        pairedPayee = document.getElementById('pairedPayee').value.trim();
-
-        document.querySelectorAll('#pairedItemsRows tr').forEach(tr => {
-          const code = tr.querySelector('.paired-item-code').value;
-          const particulars = tr.querySelector('.paired-item-particulars').value.trim();
-          const amount = tr.querySelector('.paired-item-amount').value;
-          if (code && particulars && amount) {
-            pairedItems.push({ accountCode: code, particulars, amount: parseFloat(amount) });
-          }
-        });
-
-        if (pairedItems.length === 0) {
-          Swal.fire('Warning', 'Please complete at least one line item for the connected paired voucher.', 'warning');
-          return;
-        }
-      }
-
-      const confirmTitle = isEdit ? 'Confirm Update' : (entryMode === 'Combined' ? 'Confirm Voucher Pair' : 'Confirm Entry');
-      const confirmText = isEdit 
-        ? `Update ${primaryType} Voucher No. #${primarySerial} dated ${dateVal}?`
-        : (entryMode === 'Combined' 
-          ? `Add Voucher Pair dated ${dateVal}?\n• Payment (CBV): #${primarySerial}\n• Connected Receipt (CBR): #${pairedSerial}`
-          : `Add ${primaryType} Voucher No. #${primarySerial} dated ${dateVal}?`);
-
-      const result = await Swal.fire({
-        title: confirmTitle,
-        text: confirmText,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#003366',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Yes, Save'
-      });
-
-      if (!result.isConfirmed) return;
-
-      showLoading('Saving transaction...');
-
-      try {
-        if (isEdit) {
-          const { error: delErr } = await supabaseClient
-            .from('transactions')
-            .delete()
-            .eq('office_id', currentOfficeId)
-            .eq('type', primaryType)
-            .eq('serial_no', primarySerial)
-            .eq('date', dateVal);
-
-          if (delErr) throw delErr;
-        }
-
-        const baseTs = Date.now();
-        const rowsToInsert = items.map((item, idx) => ({
-          txn_id: `TXN-${baseTs}-${idx + 1}`,
-          office_id: currentOfficeId,
-          date: dateVal,
-          month_year: txnMonthYear,
-          type: primaryType,
-          serial_no: primarySerial,
-          linked_cbv: (primaryType === 'Receipt' && receiptSubtype === 'Recovery') ? linkedCbv : null,
-          account_code: item.accountCode,
-          particulars: item.particulars,
-          party_name: payee,
-          description: description,
-          bank_nickname: bankNickname,
-          category: category,
-          receipt_subtype: primaryType === 'Receipt' ? receiptSubtype : null,
-          cheque_no: chequeNo,
-          amount: item.amount,
-          brs_status: 'Pending',
-          clearance_date: '',
-          gst_amount: primaryType === 'Payment' ? gstAmount : 0
-        }));
-
-        if (entryMode === 'Combined' && !isEdit) {
-          const pairedTs = baseTs + 100;
-          pairedItems.forEach((pItem, idx) => {
-            rowsToInsert.push({
-              txn_id: `TXN-${pairedTs}-${idx + 1}`,
-              office_id: currentOfficeId,
-              date: dateVal,
-              month_year: txnMonthYear,
-              type: 'Receipt',
-              serial_no: pairedSerial,
-              linked_cbv: primarySerial,
-              account_code: pItem.accountCode,
-              particulars: pItem.particulars,
-              party_name: pairedPayee,
-              description: `Auto-paired with CBV ${primarySerial}`,
-              bank_nickname: bankNickname,
-              category: category,
-              receipt_subtype: 'Recovery',
-              cheque_no: '',
-              amount: pItem.amount,
-              brs_status: 'Pending',
-              clearance_date: '',
-              gst_amount: 0
-            });
-          });
-        }
-
-        const { error: insErr } = await supabaseClient.from('transactions').insert(rowsToInsert);
-        if (insErr) throw insErr;
-
-        Swal.fire({
-          title: 'Success!',
-          text: 'Transaction saved successfully!',
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
-
-        resetForm();
-        await loadCashBookData();
-      } catch (err) {
-        Swal.close();
-        Swal.fire('Error', 'Save Error: ' + err.message, 'error');
-      }
-    }
-
-    async function loadCashBookData() {
-      showLoading('Loading transactions table...');
-      try {
-        const { data, error } = await supabaseClient
-          .from('transactions')
-          .select('*')
-          .eq('office_id', currentOfficeId)
-          .eq('month_year', currentActiveMonth) // Filter strictly for active month
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        allOfficeTransactions = data || [];
-        autoFetchSerialNo();
-
-        const pairs = buildDoubleSidePairs(allOfficeTransactions);
-        renderCashBookTable(pairs);
-        Swal.close();
-      } catch (err) {
-        Swal.close();
-        console.error(err);
-        Swal.fire('Error', 'Failed to load transactions: ' + err.message, 'error');
-      }
-    }
-
-    function buildDoubleSidePairs(txns) {
-      const receipts = txns.filter(t => t.type === 'Receipt').sort((a, b) => {
-        const numA = parseInt(String(a.serial_no).replace(/\D/g, ''), 10) || 0;
-        const numB = parseInt(String(b.serial_no).replace(/\D/g, ''), 10) || 0;
-        return numA - numB;
-      });
-
-      const payments = txns.filter(t => t.type === 'Payment').sort((a, b) => {
-        const numA = parseInt(String(a.serial_no).replace(/\D/g, ''), 10) || 0;
-        const numB = parseInt(String(b.serial_no).replace(/\D/g, ''), 10) || 0;
-        return numA - numB;
-      });
-
-      const pairs = [];
-      const usedReceiptIds = new Set();
-      let pairCounter = 0;
-
-      const paymentGroups = {};
-      payments.forEach(p => {
-        if (!paymentGroups[p.serial_no]) paymentGroups[p.serial_no] = [];
-        paymentGroups[p.serial_no].push(p);
-      });
-
-      receipts.forEach(r => {
-        if (usedReceiptIds.has(r.txn_id)) return;
-
-        if (r.linked_cbv) {
-          const cbvSerial = r.linked_cbv;
-          const matchingPayments = paymentGroups[cbvSerial] || [];
-          
-          pairCounter++;
-          pairs.push({
-            receipt: r,
-            payment: matchingPayments.shift() || null,
-            isMatchedPair: true,
-            pairId: pairCounter,
-            isStandaloneCbr: false
-          });
-          usedReceiptIds.add(r.txn_id);
-        } else {
-          pairs.push({
-            receipt: r,
-            payment: null,
-            isMatchedPair: false,
-            pairId: null,
-            isStandaloneCbr: true
-          });
-          usedReceiptIds.add(r.txn_id);
-        }
-      });
-
-      Object.keys(paymentGroups).forEach(cbvSerial => {
-        const remainingPayments = paymentGroups[cbvSerial];
-        remainingPayments.forEach(p => {
-          pairs.push({
-            receipt: null,
-            payment: p,
-            isMatchedPair: false,
-            pairId: null,
-            isStandaloneCbr: false
-          });
-        });
-      });
-
-      return pairs;
-    }
-
-    function renderCashBookTable(pairs) {
-      const combinedTbody = document.getElementById('cashBookCombinedRows');
-      combinedTbody.innerHTML = '';
-
-      if (!pairs || pairs.length === 0) {
-        combinedTbody.innerHTML = `<tr><td colspan="18" style="text-align:center; padding:30px; color:#64748b; font-style:italic;">No Transactions found for active month (${currentActiveMonth}).</td></tr>`;
-        return;
-      }
-
-      const matchedColors = ['#f8fafc', '#f1f5f9', '#e2e8f0', '#f8fafc'];
-
-      pairs.forEach(pair => {
-        const tr = document.createElement('tr');
-
-        if (pair.isMatchedPair && pair.pairId) {
-          const colorIndex = (pair.pairId - 1) % matchedColors.length;
-          tr.style.backgroundColor = matchedColors[colorIndex];
-        } else if (pair.isStandaloneCbr) {
-          tr.style.backgroundColor = '#ffffff';
-        }
-
-        if (pair.receipt) {
-          const r = pair.receipt;
-          const amt = Number(r.amount) || 0;
-          const cashAmt = (r.category === 'Cash') ? amt.toFixed(2) : '-';
-          const drawAmt = (r.category === 'Drawing') ? amt.toFixed(2) : '-';
-          const nonOpAmt = (r.category === 'Non Operative') ? amt.toFixed(2) : '-';
-
-          let displayCbrNo = r.serial_no;
-          if (r.linked_cbv) displayCbrNo += ` (of CBV ${r.linked_cbv})`;
-
-          const isGreen = pair.isStandaloneCbr;
-          const centerClass = isGreen ? 'standalone-green-text center' : 'center';
-          const numClass = isGreen ? 'standalone-green-text num' : 'num';
-
-          tr.appendChild(createTableCell(r.date, centerClass));
-          tr.appendChild(createTableCell(displayCbrNo, centerClass, true));
-          tr.appendChild(createTableCell(r.account_code, centerClass));
-          tr.appendChild(createParticularsCell(r.particulars, r.description, isGreen ? 'standalone-green-text' : ''));
-          tr.appendChild(createTableCell(cashAmt, numClass));
-          tr.appendChild(createTableCell(drawAmt, numClass));
-          tr.appendChild(createTableCell(nonOpAmt, numClass));
-          tr.appendChild(createActionCell(r.serial_no, 'Receipt', r.date));
-        } else {
-          for (let i = 0; i < 8; i++) {
-            tr.appendChild(createTableCell('', 'blank-cell center'));
-          }
-        }
-
-        const sepTd = document.createElement('td');
-        sepTd.className = 'table-separator';
-        tr.appendChild(sepTd);
-
-        if (pair.payment) {
-          const p = pair.payment;
-          const amt = Number(p.amount) || 0;
-          const cashAmt = (p.category === 'Cash') ? amt.toFixed(2) : '-';
-          const drawAmt = (p.category === 'Drawing') ? amt.toFixed(2) : '-';
-          const nonOpAmt = (p.category === 'Non Operative') ? amt.toFixed(2) : '-';
-
-          tr.appendChild(createTableCell(p.date, 'center'));
-          tr.appendChild(createTableCell(p.serial_no, 'center', true));
-          tr.appendChild(createTableCell(p.account_code, 'center'));
-          tr.appendChild(createParticularsCell(p.particulars, p.description, ''));
-          tr.appendChild(createTableCell(p.cheque_no || '-', 'center'));
-          tr.appendChild(createTableCell(cashAmt, 'num'));
-          tr.appendChild(createTableCell(drawAmt, 'num'));
-          tr.appendChild(createTableCell(nonOpAmt, 'num'));
-          tr.appendChild(createActionCell(p.serial_no, 'Payment', p.date));
-        } else {
-          for (let i = 0; i < 9; i++) {
-            tr.appendChild(createTableCell('', 'blank-cell center'));
-          }
-        }
-
-        combinedTbody.appendChild(tr);
-      });
-    }
-
-    function createActionCell(serialNo, type, date) {
-      const td = document.createElement('td');
-      td.className = 'center action-cell';
-
-      const editBtn = document.createElement('button');
-      editBtn.className = 'btn-action btn-edit';
-      editBtn.innerText = '✏️';
-      editBtn.title = 'Edit Voucher';
-      editBtn.onclick = function() { loadVoucherForEdit(serialNo, type, date); };
-
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn-action btn-delete';
-      delBtn.innerText = '🗑️';
-      delBtn.title = 'Delete Voucher';
-      delBtn.onclick = function() { deleteVoucher(serialNo, type, date); };
-
-      td.appendChild(editBtn);
-      td.appendChild(delBtn);
-      return td;
-    }
-
-    function createTableCell(text, className, isBold = false) {
-      const td = document.createElement('td');
-      if (className) td.className = className;
-      if (isBold) {
-        const strong = document.createElement('strong');
-        strong.textContent = text;
-        td.appendChild(strong);
-      } else {
-        td.textContent = text;
-      }
-      return td;
-    }
-
-    function createParticularsCell(particulars, description, className) {
-      const td = document.createElement('td');
-      if (className) td.className = className;
-      td.appendChild(document.createTextNode(particulars || ''));
-
-      if (description) {
-        const descSpan = document.createElement('span');
-        descSpan.className = 'desc-subtext';
-        if (className && className.includes('standalone-green-text')) {
-          descSpan.style.color = '#047857';
-        }
-        descSpan.textContent = description;
-        td.appendChild(descSpan);
-      }
-      return td;
-    }
-
-    async function loadVoucherForEdit(serialNo, type, date) {
-      const result = await Swal.fire({
-        title: 'Load Voucher for Edit',
-        text: `Edit ${type} Voucher No. #${serialNo} dated ${date}?`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#f59e0b',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Yes, Edit'
-      });
-
-      if (!result.isConfirmed) return;
-
-      const voucherItems = allOfficeTransactions.filter(t => 
-        t.type === type && String(t.serial_no) === String(serialNo) && t.date === date
-      );
-
-      if (voucherItems.length === 0) {
-        Swal.fire('Error', 'Voucher data not found.', 'error');
-        return;
-      }
-
-      const head = voucherItems[0];
-      resetForm();
-
-      document.getElementById('editingMode').value = 'true';
-      const entryMode = document.getElementById('entryMode');
-      entryMode.value = 'Standalone';
-      entryMode.disabled = true;
-      handleEntryModeChange();
-
-      document.getElementById('date').value = head.date;
-      const typeSelect = document.getElementById('type');
-      typeSelect.value = head.type;
-      typeSelect.disabled = true;
-      handleTypeChange();
-
-      document.getElementById('category').value = head.category;
-      handleCategoryChange();
-
-      document.getElementById('serialNo').value = head.serial_no;
-      document.getElementById('serialNo').readOnly = true;
-
-      document.getElementById('bankNickname').value = head.bank_nickname || '';
-      document.getElementById('chequeNo').value = head.cheque_no || '';
-      document.getElementById('payee').value = head.party_name || '';
-      document.getElementById('description').value = head.description || '';
-      document.getElementById('gstAmount').value = head.gst_amount || '';
-
-      if (head.type === 'Receipt') {
-        document.getElementById('receiptSubtype').value = head.receipt_subtype || 'Direct Cash';
-        handleReceiptSubtypeChange();
-        document.getElementById('linkedCbv').value = head.linked_cbv || '';
-      }
-
-      const tbody = document.getElementById('itemsRows');
-      tbody.innerHTML = '';
-      voucherItems.forEach(item => {
-        addItemRow(item.account_code, item.particulars, item.amount);
-      });
-
-      document.getElementById('formTitle').innerText = `Editing ${head.type} #${head.serial_no} (${head.date})`;
-      document.getElementById('saveBtn').innerText = 'Update Entry';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    async function deleteVoucher(serialNo, type, date) {
-      const result = await Swal.fire({
-        title: 'Delete Voucher',
-        text: `Permanently delete ${type} Voucher No. #${serialNo} dated ${date}?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Yes, Delete'
-      });
-
-      if (!result.isConfirmed) return;
-
-      showLoading('Deleting transaction...');
-      try {
-        const { error } = await supabaseClient
-          .from('transactions')
-          .delete()
-          .eq('office_id', currentOfficeId)
-          .eq('type', type)
-          .eq('serial_no', serialNo)
-          .eq('date', date);
-
-        if (error) throw error;
-
-        Swal.fire({
-          title: 'Deleted!',
-          text: `Voucher ${type} #${serialNo} deleted successfully.`,
-          icon: 'success',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        await loadCashBookData();
-      } catch (err) {
-        Swal.close();
-        Swal.fire('Error', 'Delete Error: ' + err.message, 'error');
-      }
-    }
-
-    function resetForm() {
-      document.getElementById('txnForm').reset();
-      document.getElementById('editingMode').value = 'false';
-      
-      document.getElementById('entryMode').disabled = false;
-      document.getElementById('type').disabled = false;
-      document.getElementById('serialNo').readOnly = false;
-
-      document.getElementById('itemsRows').innerHTML = '';
-      document.getElementById('pairedItemsRows').innerHTML = '';
-      document.getElementById('formTitle').innerText = 'Record Transaction Entry';
-      document.getElementById('saveBtn').innerText = 'Save Entry';
-      
-      addItemRow();
-      addPairedItemRow();
-
-      handleEntryModeChange();
-      handleTypeChange();
-      
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yyyy = now.getFullYear();
-      document.getElementById('date').value = `${dd}-${mm}-${yyyy}`;
-      autoFetchSerialNo();
-    }
-
-    function filterCashBookRows() {
-      const filterText = document.getElementById('cbSearchInput').value.toLowerCase().trim();
-      const rows = document.querySelectorAll('#cashBookCombinedRows tr');
-
-      rows.forEach(row => {
-        if (filterText === '') {
-          row.style.display = '';
-        } else {
-          const match = row.innerText.toLowerCase().includes(filterText);
-          row.style.display = match ? '' : 'none';
-        }
-      });
-    }
-
-    // --- REPORT GENERATORS ---
-    async function promptMonthYear() {
-      return currentActiveMonth; // defaults to active month
-    }
-
-    async function exportCb27Excel() {
-      const monthYear = currentActiveMonth;
-      showLoading('Generating CB27 Excel...');
-      try {
-        const txns = allOfficeTransactions;
-        const { data: codes } = await supabaseClient.from('account_codes_master').select('*');
-        const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
-
-        let openCash = 0, openDrawing = 0, openNonOp = 0;
-        banks.forEach(b => {
+        const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', officeId);
+        const { data: txns } = await supabaseClient.from('transactions').select('*').eq('office_id', officeId);
+
+        let openCash = 0, openDraw = 0, openNop = 0;
+        (banks || []).forEach(b => {
           const bal = Number(b.opening_balance) || 0;
-          const cat = (b.category || '').trim().toLowerCase();
+          const cat = (b.category || '').toLowerCase().trim();
           if (cat === 'cash') openCash += bal;
-          else if (cat === 'drawing') openDrawing += bal;
-          else if (cat.includes('non')) openNonOp += bal;
+          else if (cat === 'drawing') openDraw += bal;
+          else if (cat.includes('non') || cat.includes('nop')) openNop += bal;
         });
 
-        const summary = {};
-        codes.forEach(ac => {
-          summary[ac.account_code] = { particulars: ac.particulars, recCash: 0, recDrawing: 0, recNonOp: 0, payCash: 0, payDrawing: 0, payNonOp: 0 };
-        });
-
-        let recC = 0, recD = 0, recN = 0, payC = 0, payD = 0, payN = 0;
-
-        txns.forEach(t => {
-          if (!summary[t.account_code]) {
-            summary[t.account_code] = { particulars: t.particulars, recCash: 0, recDrawing: 0, recNonOp: 0, payCash: 0, payDrawing: 0, payNonOp: 0 };
-          }
+        let deltaCash = 0, deltaDraw = 0, deltaNop = 0;
+        (txns || []).forEach(t => {
           const amt = Number(t.amount) || 0;
-          if (t.type === 'Receipt') {
-            if (t.category === 'Cash') { summary[t.account_code].recCash += amt; recC += amt; }
-            else if (t.category === 'Drawing') { summary[t.account_code].recDrawing += amt; recD += amt; }
-            else { summary[t.account_code].recNonOp += amt; recN += amt; }
-          } else {
-            if (t.category === 'Cash') { summary[t.account_code].payCash += amt; payC += amt; }
-            else if (t.category === 'Drawing') { summary[t.account_code].payDrawing += amt; payD += amt; }
-            else { summary[t.account_code].payNonOp += amt; payN += amt; }
-          }
+          const sign = t.type === 'Receipt' ? 1 : -1;
+          const cat = (t.category || '').toLowerCase().trim();
+          if (cat === 'cash') deltaCash += sign * amt;
+          else if (cat === 'drawing') deltaDraw += sign * amt;
+          else deltaNop += sign * amt;
         });
 
-        const closeC = openCash + recC - payC;
-        const closeD = openDrawing + recD - payD;
-        const closeN = openNonOp + recN - payN;
+        const totCash = openCash + deltaCash;
+        const totDraw = openDraw + deltaDraw;
+        const totNop = openNop + deltaNop;
 
-        const wbData = [
-          ["KERALA WATER AUTHORITY "],
-          [`FORM CB 27 (Monthly Abstract of Cash Book - ${monthYear})`],
-          [],
-          ["Acc Code", "Particulars", "Rec Cash", "Rec Drawing", "Rec Non Op", "Pay Cash", "Pay Drawing", "Pay Non Op"],
-          ["-", "Opening Balance", openCash, openDrawing, openNonOp, "-", "-", "-"]
-        ];
+        const elC = document.getElementById('dashCash');
+        const elD = document.getElementById('dashDrawing');
+        const elN = document.getElementById('dashNop');
 
-        Object.keys(summary).forEach(code => {
-          const s = summary[code];
-          if (s.recCash || s.recDrawing || s.recNonOp || s.payCash || s.payDrawing || s.payNonOp) {
-            wbData.push([code, s.particulars, s.recCash || '-', s.recDrawing || '-', s.recNonOp || '-', s.payCash || '-', s.payDrawing || '-', s.payNonOp || '-']);
-          }
-        });
+        elC.innerText = `₹ ${formatINR(totCash)}`;
+        if (totCash < 0) elC.classList.add('neg');
 
-        wbData.push(["-", "Sub-Total Transactions", recC, recD, recN, payC, payD, payN]);
-        wbData.push(["-", "Closing Balance", "-", "-", "-", closeC, closeD, closeN]);
-        wbData.push(["-", "GRAND TOTAL", openCash + recC, openDrawing + recD, openNonOp + recN, payC + closeC, payD + closeD, payN + closeN]);
+        elD.innerText = `₹ ${formatINR(totDraw)}`;
+        if (totDraw < 0) elD.classList.add('neg');
 
-        const ws = XLSX.utils.aoa_to_sheet(wbData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "CB 27 Abstract");
-        XLSX.writeFile(wb, `CB27_Abstract_${monthYear}.xlsx`);
-        Swal.close();
-      } catch (err) {
-        Swal.close();
-        Swal.fire('Error', 'Export failed: ' + err.message, 'error');
-      }
-    }
-
-    async function exportCb27Pdf() {
-      const monthYear = currentActiveMonth;
-      showLoading('Generating CB27 PDF...');
-      try {
-        const txns = allOfficeTransactions;
-        const { data: codes } = await supabaseClient.from('account_codes_master').select('*');
-        const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
-
-        let openCash = 0, openDrawing = 0, openNonOp = 0;
-        banks.forEach(b => {
-          const bal = Number(b.opening_balance) || 0;
-          const cat = (b.category || '').trim().toLowerCase();
-          if (cat === 'cash') openCash += bal;
-          else if (cat === 'drawing') openDrawing += bal;
-          else if (cat.includes('non')) openNonOp += bal;
-        });
-
-        const summary = {};
-        codes.forEach(ac => {
-          summary[ac.account_code] = { particulars: ac.particulars, recCash: 0, recDrawing: 0, recNonOp: 0, payCash: 0, payDrawing: 0, payNonOp: 0 };
-        });
-
-        let recC = 0, recD = 0, recN = 0, payC = 0, payD = 0, payN = 0;
-
-        txns.forEach(t => {
-          if (!summary[t.account_code]) {
-            summary[t.account_code] = { particulars: t.particulars, recCash: 0, recDrawing: 0, recNonOp: 0, payCash: 0, payDrawing: 0, payNonOp: 0 };
-          }
-          const amt = Number(t.amount) || 0;
-          if (t.type === 'Receipt') {
-            if (t.category === 'Cash') { summary[t.account_code].recCash += amt; recC += amt; }
-            else if (t.category === 'Drawing') { summary[t.account_code].recDrawing += amt; recD += amt; }
-            else { summary[t.account_code].recNonOp += amt; recN += amt; }
-          } else {
-            if (t.category === 'Cash') { summary[t.account_code].payCash += amt; payC += amt; }
-            else if (t.category === 'Drawing') { summary[t.account_code].payDrawing += amt; payD += amt; }
-            else { summary[t.account_code].payNonOp += amt; payN += amt; }
-          }
-        });
-
-        const closeC = openCash + recC - payC;
-        const closeD = openDrawing + recD - payD;
-        const closeN = openNonOp + recN - payN;
-
-        let printWindow = window.open('', '_blank');
-        let html = `
-          <html>
-          <head>
-            <title>CB27 Abstract - ${monthYear}</title>
-            <style>
-              @page { size: landscape; margin: 15px; }
-              body { font-family: Arial, sans-serif; font-size: 11px; margin: 15px; }
-              .header { text-align: center; font-weight: bold; margin-bottom: 18px; text-transform: uppercase; line-height: 1.4; }
-              .header .line1 { font-size: 15px; color: #000; }
-              .header .line2 { font-size: 13px; color: #111; }
-              .header .line3 { font-size: 12px; color: #222; }
-              .header .line4 { font-size: 12px; color: #222; }
-              .header .line5 { font-size: 12px; color: #000; }
-              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
-              th, td { border: 1px solid #000; padding: 5px 4px; text-align: left; word-wrap: break-word; font-size: 10px; }
-              th { background-color: #f0f0f0; text-align: center; font-weight: bold; }
-              .num { text-align: right; }
-              .bold { font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="line1">KERALA WATER AUTHORITY</div>
-              <div class="line2">${escapeHtml(currentOfficeName)}</div>
-              <div class="line3">FORM CB 27- MONTHLY ABSTRACT OF CASH BOOK</div>
-              <div class="line5">${escapeHtml(monthYear)}</div>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th rowspan="2" style="width:10%">Acc Code</th>
-                  <th rowspan="2" style="width:30%">Particulars</th>
-                  <th colspan="3" style="width:30%">RECEIPTS</th>
-                  <th colspan="3" style="width:30%">PAYMENTS</th>
-                </tr>
-                <tr>
-                  <th style="width:10%">Cash (₹)</th>
-                  <th style="width:10%">Drawing (₹)</th>
-                  <th style="width:10%">Non Op (₹)</th>
-                  <th style="width:10%">Cash (₹)</th>
-                  <th style="width:10%">Drawing (₹)</th>
-                  <th style="width:10%">Non Op (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>-</td>
-                  <td class="bold">Opening Balance</td>
-                  <td class="num bold">${openCash ? openCash.toFixed(2) : '0.00'}</td>
-                  <td class="num bold">${openDrawing ? openDrawing.toFixed(2) : '0.00'}</td>
-                  <td class="num bold">${openNonOp ? openNonOp.toFixed(2) : '0.00'}</td>
-                  <td class="num">-</td>
-                  <td class="num">-</td>
-                  <td class="num">-</td>
-                </tr>`;
-
-        Object.keys(summary).forEach(code => {
-          const item = summary[code];
-          if (item.recCash || item.recDrawing || item.recNonOp || item.payCash || item.payDrawing || item.payNonOp) {
-            html += `
-              <tr>
-                <td>${code}</td>
-                <td>${item.particulars}</td>
-                <td class="num">${item.recCash ? item.recCash.toFixed(2) : '-'}</td>
-                <td class="num">${item.recDrawing ? item.recDrawing.toFixed(2) : '-'}</td>
-                <td class="num">${item.recNonOp ? item.recNonOp.toFixed(2) : '-'}</td>
-                <td class="num">${item.payCash ? item.payCash.toFixed(2) : '-'}</td>
-                <td class="num">${item.payDrawing ? item.payDrawing.toFixed(2) : '-'}</td>
-                <td class="num">${item.payNonOp ? item.payNonOp.toFixed(2) : '-'}</td>
-              </tr>`;
-          }
-        });
-
-        html += `
-                <tr class="bold">
-                  <td>-</td>
-                  <td>Sub-Total Transactions</td>
-                  <td class="num">${recC.toFixed(2)}</td>
-                  <td class="num">${recD.toFixed(2)}</td>
-                  <td class="num">${recN.toFixed(2)}</td>
-                  <td class="num">${payC.toFixed(2)}</td>
-                  <td class="num">${payD.toFixed(2)}</td>
-                  <td class="num">${payN.toFixed(2)}</td>
-                </tr>
-                <tr class="bold">
-                  <td>-</td>
-                  <td>Closing Balance</td>
-                  <td class="num">-</td>
-                  <td class="num">-</td>
-                  <td class="num">-</td>
-                  <td class="num">${closeC.toFixed(2)}</td>
-                  <td class="num">${closeD.toFixed(2)}</td>
-                  <td class="num">${closeN.toFixed(2)}</td>
-                </tr>
-                <tr class="bold" style="background-color:#e6e6e6;">
-                  <td>-</td>
-                  <td>GRAND TOTAL</td>
-                  <td class="num">${(openCash + recC).toFixed(2)}</td>
-                  <td class="num">${(openDrawing + recD).toFixed(2)}</td>
-                  <td class="num">${(openNonOp + recN).toFixed(2)}</td>
-                  <td class="num">${(payC + closeC).toFixed(2)}</td>
-                  <td class="num">${(payD + closeD).toFixed(2)}</td>
-                  <td class="num">${(payN + closeN).toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </body>
-          </html>
-        `;
-
-        printWindow.document.write(html);
-        printWindow.document.close();
-        Swal.close();
-        printWindow.print();
-      } catch (err) {
-        Swal.close();
-        Swal.fire('Error', 'CB27 PDF Generation failed: ' + err.message, 'error');
-      }
-    }
-
-    async function exportCb28Pdf() {
-      const monthYear = currentActiveMonth;
-      showLoading('Generating CB28 PDF...');
-      const txns = allOfficeTransactions;
-      
-      let printWindow = window.open('', '_blank');
-      let html = `<html><head><title>CB28 - ${monthYear}</title><style>body{font-family:Arial;font-size:11px;padding:20px;} table{width:100%;border-collapse:collapse;margin-bottom:20px;} th,td{border:1px solid #000;padding:5px;font-size:10px;} th{background:#eee;}</style></head><body>`;
-      html += `<h2>KERALA WATER AUTHORITY - FORM CB 28 (${monthYear})</h2>`;
-
-      const codes = [...new Set(txns.map(t => t.account_code))];
-      codes.forEach(code => {
-        const codeTxns = txns.filter(t => t.account_code === code);
-        html += `<h3>Account Code: ${code}</h3>`;
-        html += `<table><thead><tr><th>Date</th><th>Type</th><th>Serial</th><th>Particulars</th><th>Amount (₹)</th></tr></thead><tbody>`;
-        codeTxns.forEach(t => {
-          html += `<tr><td>${t.date}</td><td>${t.type}</td><td>${t.serial_no}</td><td>${t.particulars}</td><td style="text-align:right;">${Number(t.amount).toFixed(2)}</td></tr>`;
-        });
-        html += `</tbody></table>`;
-      });
-
-      html += `</body></html>`;
-      printWindow.document.write(html);
-      printWindow.document.close();
-      Swal.close();
-      printWindow.print();
-    }
-
-    async function exportDoubleSideExcel() {
-      showLoading('Generating Double-Side Excel...');
-      try {
-        const pairs = buildDoubleSidePairs(allOfficeTransactions);
-        const wbData = [
-          ["KERALA WATER AUTHORITY - PH DIVISION, THIRUVALLA"],
-          [`DOUBLE SIDED CASH BOOK VIEW (${currentActiveMonth})`],
-          [],
-          ["Receipt Date", "CBR No", "Acc Code", "Particulars", "Cash", "Drawing", "Non Op", " | ", "Payment Date", "CBV No", "Acc Code", "Particulars", "Cheque No", "Cash", "Drawing", "Non Op"]
-        ];
-
-        pairs.forEach(p => {
-          const r = p.receipt;
-          const pm = p.payment;
-          wbData.push([
-            r ? r.date : '', r ? r.serial_no : '', r ? r.account_code : '', r ? r.particulars : '',
-            r && r.category === 'Cash' ? r.amount : '', r && r.category === 'Drawing' ? r.amount : '', r && r.category === 'Non Operative' ? r.amount : '', '|',
-            pm ? pm.date : '', pm ? pm.serial_no : '', pm ? pm.account_code : '', pm ? pm.particulars : '',
-            pm ? pm.cheque_no : '', pm && pm.category === 'Cash' ? pm.amount : '', pm && pm.category === 'Drawing' ? pm.amount : '', pm && pm.category === 'Non Operative' ? pm.amount : ''
-          ]);
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(wbData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Double Side View");
-        XLSX.writeFile(wb, `Cash_Book_${currentActiveMonth}.xlsx`);
-        Swal.close();
-      } catch (err) {
-        Swal.close();
-        Swal.fire('Error', 'Excel export failed: ' + err.message, 'error');
+        elN.innerText = `₹ ${formatINR(totNop)}`;
+        if (totNop < 0) elN.classList.add('neg');
+      } catch (e) {
+        console.error('Quick balance error:', e);
       }
     }
 
