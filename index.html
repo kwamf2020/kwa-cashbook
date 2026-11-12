@@ -1279,7 +1279,165 @@
     async function exportCb27Pdf() {
       const monthYear = await promptMonthYear();
       if (!monthYear) return;
-      window.print();
+
+      showLoading('Generating CB27 PDF...');
+      try {
+        const txns = allOfficeTransactions.filter(t => t.month_year.toLowerCase() === monthYear.toLowerCase());
+        const { data: codes } = await supabaseClient.from('account_codes_master').select('*');
+        const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
+
+        let openCash = 0, openDrawing = 0, openNonOp = 0;
+        banks.forEach(b => {
+          const bal = Number(b.opening_balance) || 0;
+          const cat = (b.category || '').trim().toLowerCase();
+          if (cat === 'cash') openCash += bal;
+          else if (cat === 'drawing') openDrawing += bal;
+          else if (cat.includes('non')) openNonOp += bal;
+        });
+
+        const summary = {};
+        codes.forEach(ac => {
+          summary[ac.account_code] = { particulars: ac.particulars, recCash: 0, recDrawing: 0, recNonOp: 0, payCash: 0, payDrawing: 0, payNonOp: 0 };
+        });
+
+        let recC = 0, recD = 0, recN = 0, payC = 0, payD = 0, payN = 0;
+
+        txns.forEach(t => {
+          if (!summary[t.account_code]) {
+            summary[t.account_code] = { particulars: t.particulars, recCash: 0, recDrawing: 0, recNonOp: 0, payCash: 0, payDrawing: 0, payNonOp: 0 };
+          }
+          const amt = Number(t.amount) || 0;
+          if (t.type === 'Receipt') {
+            if (t.category === 'Cash') { summary[t.account_code].recCash += amt; recC += amt; }
+            else if (t.category === 'Drawing') { summary[t.account_code].recDrawing += amt; recD += amt; }
+            else { summary[t.account_code].recNonOp += amt; recN += amt; }
+          } else {
+            if (t.category === 'Cash') { summary[t.account_code].payCash += amt; payC += amt; }
+            else if (t.category === 'Drawing') { summary[t.account_code].payDrawing += amt; payD += amt; }
+            else { summary[t.account_code].payNonOp += amt; payN += amt; }
+          }
+        });
+
+        const closeC = openCash + recC - payC;
+        const closeD = openDrawing + recD - payD;
+        const closeN = openNonOp + recN - payN;
+
+        let printWindow = window.open('', '_blank');
+        let html = `
+          <html>
+          <head>
+            <title>CB27 Abstract - ${monthYear}</title>
+            <style>
+              @page { size: landscape; margin: 15px; }
+              body { font-family: Arial, sans-serif; font-size: 11px; margin: 15px; }
+              .header { text-align: center; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
+              .header h2 { margin: 2px; font-size: 14px; }
+              .header h3 { margin: 2px; font-size: 12px; color: #333; }
+              .header h4 { margin: 4px; font-size: 12px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
+              th, td { border: 1px solid #000; padding: 5px 4px; text-align: left; word-wrap: break-word; font-size: 10px; }
+              th { background-color: #f0f0f0; text-align: center; font-weight: bold; }
+              .num { text-align: right; }
+              .bold { font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h2>KERALA WATER AUTHORITY</h2>
+              <h3>PH DIVISION</h3>
+              <h4>FORM CB 27 (Monthly Abstract of Cash Book - ${monthYear})</h4>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th rowspan="2" style="width:10%">Acc Code</th>
+                  <th rowspan="2" style="width:30%">Particulars</th>
+                  <th colspan="3" style="width:30%">RECEIPTS</th>
+                  <th colspan="3" style="width:30%">PAYMENTS</th>
+                </tr>
+                <tr>
+                  <th style="width:10%">Cash (₹)</th>
+                  <th style="width:10%">Drawing (₹)</th>
+                  <th style="width:10%">Non Op (₹)</th>
+                  <th style="width:10%">Cash (₹)</th>
+                  <th style="width:10%">Drawing (₹)</th>
+                  <th style="width:10%">Non Op (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>-</td>
+                  <td class="bold">Opening Balance</td>
+                  <td class="num bold">${openCash ? openCash.toFixed(2) : '0.00'}</td>
+                  <td class="num bold">${openDrawing ? openDrawing.toFixed(2) : '0.00'}</td>
+                  <td class="num bold">${openNonOp ? openNonOp.toFixed(2) : '0.00'}</td>
+                  <td class="num">-</td>
+                  <td class="num">-</td>
+                  <td class="num">-</td>
+                </tr>`;
+
+        Object.keys(summary).forEach(code => {
+          const item = summary[code];
+          if (item.recCash || item.recDrawing || item.recNonOp || item.payCash || item.payDrawing || item.payNonOp) {
+            html += `
+              <tr>
+                <td>${code}</td>
+                <td>${item.particulars}</td>
+                <td class="num">${item.recCash ? item.recCash.toFixed(2) : '-'}</td>
+                <td class="num">${item.recDrawing ? item.recDrawing.toFixed(2) : '-'}</td>
+                <td class="num">${item.recNonOp ? item.recNonOp.toFixed(2) : '-'}</td>
+                <td class="num">${item.payCash ? item.payCash.toFixed(2) : '-'}</td>
+                <td class="num">${item.payDrawing ? item.payDrawing.toFixed(2) : '-'}</td>
+                <td class="num">${item.payNonOp ? item.payNonOp.toFixed(2) : '-'}</td>
+              </tr>`;
+          }
+        });
+
+        html += `
+                <tr class="bold">
+                  <td>-</td>
+                  <td>Sub-Total Transactions</td>
+                  <td class="num">${recC.toFixed(2)}</td>
+                  <td class="num">${recD.toFixed(2)}</td>
+                  <td class="num">${recN.toFixed(2)}</td>
+                  <td class="num">${payC.toFixed(2)}</td>
+                  <td class="num">${payD.toFixed(2)}</td>
+                  <td class="num">${payN.toFixed(2)}</td>
+                </tr>
+                <tr class="bold">
+                  <td>-</td>
+                  <td>Closing Balance</td>
+                  <td class="num">-</td>
+                  <td class="num">-</td>
+                  <td class="num">-</td>
+                  <td class="num">${closeC.toFixed(2)}</td>
+                  <td class="num">${closeD.toFixed(2)}</td>
+                  <td class="num">${closeN.toFixed(2)}</td>
+                </tr>
+                <tr class="bold" style="background-color:#e6e6e6;">
+                  <td>-</td>
+                  <td>GRAND TOTAL</td>
+                  <td class="num">${(openCash + recC).toFixed(2)}</td>
+                  <td class="num">${(openDrawing + recD).toFixed(2)}</td>
+                  <td class="num">${(openNonOp + recN).toFixed(2)}</td>
+                  <td class="num">${(payC + closeC).toFixed(2)}</td>
+                  <td class="num">${(payD + closeD).toFixed(2)}</td>
+                  <td class="num">${(payN + closeN).toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `;
+
+        printWindow.document.write(html);
+        printWindow.document.close();
+        Swal.close();
+        printWindow.print();
+      } catch (err) {
+        Swal.close();
+        Swal.fire('Error', 'CB27 PDF Generation failed: ' + err.message, 'error');
+      }
     }
 
     async function exportCb28Pdf() {
