@@ -8,7 +8,6 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-
     :root {
       --kwa-primary: #003366;
       --kwa-secondary: #004d99;
@@ -294,20 +293,88 @@
 
         // 2. Bank Accounts
         (banks || []).forEach(b => {
-          const bTxns = (txns || []).filter(t => t.bank_nickname && t.bank_nickname.toLowerCase() === b.account_nickname.toLowerCase());
+          const bNick = (b.account_nickname || '').trim().toLowerCase();
           const openBal = Number(b.opening_balance) || 0;
+
+          // Filter bank transactions
+          const bTxns = (txns || []).filter(t => t.bank_nickname && t.bank_nickname.trim().toLowerCase() === bNick);
+
+          // Group payments by CBV serial_no and sum their amounts
+          const paymentMap = {};
+          // Group receipts by txn_id or serial_no
+          const receiptMap = {};
+          // Map to track linked receipts for a CBV
+          const cbvLinkedReceipts = {}; // cbvSerial -> sum of receipt amounts
+
+          bTxns.forEach(t => {
+            const type = (t.type || '').trim().toLowerCase();
+            const amt = Number(t.amount) || 0;
+            const serial = String(t.serial_no || '').trim();
+
+            if (type === 'payment') {
+              if (!paymentMap[serial]) {
+                paymentMap[serial] = {
+                  date: t.date,
+                  serialNo: t.serial_no,
+                  chequeNo: t.cheque_no,
+                  partyName: t.party_name,
+                  accountCode: t.account_code,
+                  description: t.description || t.particulars,
+                  totalAmount: 0
+                };
+              }
+              paymentMap[serial].totalAmount += amt;
+            } else if (type === 'receipt') {
+              const linkedCbv = String(t.linked_cbv || '').trim();
+              if (linkedCbv) {
+                if (!cbvLinkedReceipts[linkedCbv]) cbvLinkedReceipts[linkedCbv] = 0;
+                cbvLinkedReceipts[linkedCbv] += amt;
+              } else {
+                // Standalone receipt (Direct Bank deposit)
+                receiptMap[t.txn_id || Math.random()] = {
+                  date: t.date,
+                  serialNo: t.serial_no,
+                  chequeNo: t.cheque_no,
+                  partyName: t.party_name,
+                  accountCode: t.account_code,
+                  description: t.description || t.particulars,
+                  amount: amt
+                };
+              }
+            }
+          });
+
           let creds = 0, debs = 0, bRunning = openBal;
           const bStatement = [];
 
-          bTxns.forEach(t => {
-            const amt = Number(t.amount) || 0;
-            let cred = 0, deb = 0;
-            if (t.type === 'Receipt') { cred = amt; creds += amt; bRunning += amt; }
-            else { deb = amt; debs += amt; bRunning -= amt; }
+          // Add standalone bank receipts (Credits)
+          Object.values(receiptMap).forEach(r => {
+            creds += r.amount;
+            bRunning += r.amount;
             bStatement.push({
-              date: t.date, serialNo: t.serial_no, chequeNo: t.cheque_no, partyName: t.party_name,
-              accountCode: t.account_code, description: t.description || t.particulars, credit: cred, debit: deb, runningBalance: bRunning
+              date: r.date, serialNo: r.serialNo, chequeNo: r.chequeNo || '-', partyName: r.partyName || '-',
+              accountCode: r.accountCode, description: r.description || '-', credit: r.amount, debit: 0, runningBalance: bRunning
             });
+          });
+
+          // Add net bank payments (CBV gross amount minus connected CBR receipts)
+          Object.values(paymentMap).forEach(p => {
+            const cbvKey = String(p.serialNo).trim();
+            const linkedRecSum = cbvLinkedReceipts[cbvKey] || 0;
+            const netDebit = p.totalAmount - linkedRecSum;
+
+            if (netDebit > 0) {
+              debs += netDebit;
+              bRunning -= netDebit;
+              const descText = linkedRecSum > 0 
+                ? `${p.description || 'Payment'} (Gross: ₹${formatINR(p.totalAmount)}, Recoveries: ₹${formatINR(linkedRecSum)})`
+                : (p.description || '-');
+
+              bStatement.push({
+                date: p.date, serialNo: p.serialNo, chequeNo: p.chequeNo || '-', partyName: p.partyName || '-',
+                accountCode: p.accountCode, description: descText, credit: 0, debit: netDebit, runningBalance: bRunning
+              });
+            }
           });
 
           accounts.push({
@@ -377,7 +444,7 @@
       cashEl.innerText = `₹ ${formatINR(totalCash)}`;
       cashEl.className = totalCash < 0 ? 'kpi-value negative' : 'kpi-value';
       drawingEl.innerText = `₹ ${formatINR(totalDrawing)}`;
-      drawingEl.className = totalDrawing < 0 ? 'kpi-value negative' : 'kpi-value';
+      drawingEl.className = drawingEl < 0 ? 'kpi-value negative' : 'kpi-value';
       nopEl.innerText = `₹ ${formatINR(totalNop)}`;
       nopEl.className = totalNop < 0 ? 'kpi-value negative' : 'kpi-value';
 
