@@ -350,12 +350,17 @@
     let currentOfficeId = '';
     let allOfficeTransactions = [];
 
-    window.onload = async function() {
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) {
+  window.onload = async function() {
+      showLoading('Authenticating session...');
+      
+      // 1. Await session verification first
+      const { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
+      if (sessionErr || !session) {
+        Swal.close();
         window.location.href = 'login.html';
         return;
       }
+      
       currentOfficeId = session.user.id;
       document.getElementById('officeTitle').innerText = `KERALA WATER AUTHORITY (${session.user.email})`;
 
@@ -372,10 +377,11 @@
       }, { passive: false });
 
       handleCategoryChange();
+      
+      // 2. Load masters and cash book data sequentially after session is confirmed
       await loadInitialMasters();
       await loadCashBookData();
     };
-
     function showLoading(title = 'Processing...') {
       Swal.fire({
         title: title,
@@ -387,7 +393,7 @@
     async function loadInitialMasters() {
       showLoading('Loading configuration & masters...');
       try {
-        // 1. Fetch Account Codes Master (Global)
+        // Fetch Account Codes Master (Global)
         const { data: codesData, error: codesErr } = await supabaseClient
           .from('account_codes_master')
           .select('*')
@@ -396,7 +402,7 @@
         if (codesErr) throw codesErr;
         masterAccountCodes = codesData || [];
 
-        // 2. Fetch Bank Master (Office Specific)
+        // Fetch Bank Master (Office Specific)
         const { data: banksData, error: banksErr } = await supabaseClient
           .from('bank_master')
           .select('*')
@@ -411,7 +417,7 @@
           bankSelect.innerHTML += `<option value="${escapeHtml(b.account_nickname)}">${escapeHtml(b.account_nickname)} (${escapeHtml(b.category)})</option>`;
         });
 
-        // Initialize item rows AFTER masterAccountCodes has populated
+        // Initialize item rows using the newly fetched masterAccountCodes
         const tbody = document.getElementById('itemsRows');
         tbody.innerHTML = '';
         addItemRow();
@@ -420,7 +426,6 @@
         pairedTbody.innerHTML = '';
         addPairedItemRow();
 
-        refreshAccountCodeDropdowns();
         Swal.close();
       } catch (err) {
         Swal.close();
