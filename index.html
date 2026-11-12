@@ -848,8 +848,19 @@
     }
 
     function buildDoubleSidePairs(txns) {
-      const receipts = txns.filter(t => t.type === 'Receipt');
-      const payments = txns.filter(t => t.type === 'Payment');
+      // Sort receipts strictly by numerical CBR number order
+      const receipts = txns.filter(t => t.type === 'Receipt').sort((a, b) => {
+        const numA = parseInt(String(a.serial_no).replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt(String(b.serial_no).replace(/\D/g, ''), 10) || 0;
+        return numA - numB;
+      });
+
+      // Sort payments strictly by numerical CBV number order
+      const payments = txns.filter(t => t.type === 'Payment').sort((a, b) => {
+        const numA = parseInt(String(a.serial_no).replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt(String(b.serial_no).replace(/\D/g, ''), 10) || 0;
+        return numA - numB;
+      });
 
       const pairs = [];
       const usedReceiptIds = new Set();
@@ -862,35 +873,26 @@
         paymentGroups[p.serial_no].push(p);
       });
 
-      Object.keys(paymentGroups).forEach(cbvSerial => {
-        const pItems = paymentGroups[cbvSerial];
-        const linkedReceipts = receipts.filter(r => 
-          !usedReceiptIds.has(r.txn_id) && 
-          r.linked_cbv && 
-          String(r.linked_cbv).trim().toLowerCase() === String(cbvSerial).trim().toLowerCase()
-        );
+      // First, iterate through sorted receipts so they appear in CBR order
+      receipts.forEach(r => {
+        if (usedReceiptIds.has(r.txn_id)) return;
 
-        const isMatched = linkedReceipts.length > 0;
-        if (isMatched) pairCounter++;
-
-        const maxLen = Math.max(pItems.length, linkedReceipts.length);
-        for (let i = 0; i < maxLen; i++) {
-          const rItem = linkedReceipts[i] || null;
-          if (rItem) usedReceiptIds.add(rItem.txn_id);
-
+        if (r.linked_cbv) {
+          // This receipt is linked to a CBV payment
+          const cbvSerial = r.linked_cbv;
+          const matchingPayments = paymentGroups[cbvSerial] || [];
+          
+          pairCounter++;
           pairs.push({
-            receipt: rItem,
-            payment: pItems[i] || null,
-            isMatchedPair: isMatched,
-            pairId: isMatched ? pairCounter : null,
+            receipt: r,
+            payment: matchingPayments.shift() || null, // Pair with corresponding payment line item
+            isMatchedPair: true,
+            pairId: pairCounter,
             isStandaloneCbr: false
           });
-        }
-      });
-
-      // Add remaining standalone receipts
-      receipts.forEach(r => {
-        if (!usedReceiptIds.has(r.txn_id)) {
+          usedReceiptIds.add(r.txn_id);
+        } else {
+          // Standalone receipt
           pairs.push({
             receipt: r,
             payment: null,
@@ -898,7 +900,22 @@
             pairId: null,
             isStandaloneCbr: true
           });
+          usedReceiptIds.add(r.txn_id);
         }
+      });
+
+      // Add any remaining payment lines that didn't have paired receipts
+      Object.keys(paymentGroups).forEach(cbvSerial => {
+        const remainingPayments = paymentGroups[cbvSerial];
+        remainingPayments.forEach(p => {
+          pairs.push({
+            receipt: null,
+            payment: p,
+            isMatchedPair: false,
+            pairId: null,
+            isStandaloneCbr: false
+          });
+        });
       });
 
       return pairs;
