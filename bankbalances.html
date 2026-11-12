@@ -3,94 +3,152 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KWA Bank Balances & Master Setup</title>
+  <title>Bank Account Balances & Statements - KWA</title>
+  <!-- SweetAlert2 CSS & JS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-100 text-slate-800 min-h-screen p-6">
+  
+  <style>
+    :root {
+      --kwa-blue: #003366;
+      --kwa-header: #004080;
+      --green-credit: #198754;
+      --red-debit: #dc3545;
+    }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f4f6f9; color: #333; }
 
-  <div class="bg-[#003366] text-white p-4 rounded-lg shadow-md flex justify-between items-center mb-6">
-    <div>
-      <h1 class="text-lg font-bold uppercase">Kerala Water Authority</h1>
-      <p class="text-xs opacity-80">Bank Master & Balances Management</p>
-    </div>
-    <div class="flex gap-3">
-      <a href="index.html" class="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded font-semibold transition">← Back to Cash Book</a>
-      <a href="taxview.html" class="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded font-semibold transition">Tax Report →</a>
-    </div>
-  </div>
+    .banner { background-color: var(--kwa-blue); color: white; padding: 18px 22px; border-radius: 6px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .banner h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .banner h2 { margin: 4px 0 0 0; font-size: 13px; font-weight: 400; opacity: 0.9; }
 
-  <!-- Bank Master Entry Form Card -->
-  <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200 mb-6">
-    <h3 class="text-md font-bold text-[#004080] border-b pb-2 mb-4">Add / Configure Bank Account</h3>
+    .btn-home { background-color: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 7px 14px; font-size: 13px; border-radius: 4px; text-decoration: none; font-weight: 600; }
+    .btn-home:hover { background-color: rgba(255,255,255,0.3); }
+
+    /* Top Summary Tiles */
+    .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .kpi-tile { background: white; padding: 15px 18px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.06); border-top: 4px solid var(--kwa-header); }
+    .kpi-tile.cash { border-top-color: #17a2b8; }
+    .kpi-tile.drawing { border-top-color: #0d6efd; }
+    .kpi-tile.nop { border-top-color: #6f42c1; }
+    .kpi-label { font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.5px; }
+    .kpi-value { font-size: 20px; font-weight: 700; color: #212529; margin-top: 6px; }
+    .kpi-value.negative { color: var(--red-debit); }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 15px; margin-bottom: 25px; }
     
-    <form id="bankForm" onsubmit="handleBankSubmit(event)">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Account Nickname *</label>
-          <input type="text" id="accountNickname" required placeholder="e.g. Establishment / OandM" class="w-full px-3 py-2 border rounded text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Bank Name *</label>
-          <select id="bankName" required class="w-full px-3 py-2 border rounded text-sm bg-white">
-            <option value="State Bank of India">State Bank of India</option>
-            <option value="Punjab National Bank">Punjab National Bank</option>
-            <option value="Federal Bank">Federal Bank</option>
-            <option value="Indian Bank">Indian Bank</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Account Number *</label>
-          <input type="text" id="accountNo" required placeholder="e.g. 57067992143" class="w-full px-3 py-2 border rounded text-sm">
-        </div>
-      </div>
+    .account-card { background: white; border-radius: 8px; padding: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.06); cursor: pointer; border-left: 5px solid var(--kwa-header); transition: transform 0.15s ease, box-shadow 0.15s ease; position: relative; }
+    .account-card:hover { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(0,0,0,0.1); }
+    .account-card.active { border-left-color: var(--green-credit); background-color: #f8fff9; }
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Category *</label>
-          <select id="bankCategory" required class="w-full px-3 py-2 border rounded text-sm bg-white">
-            <option value="Drawing">Drawing Account</option>
-            <option value="Non Operative">Non Operative Account</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Opening Balance (₹) *</label>
-          <input type="number" step="0.01" id="openingBalance" required value="0.00" class="w-full px-3 py-2 border rounded text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Passbook Balance (₹) *</label>
-          <input type="number" step="0.01" id="passbookBalance" required value="0.00" class="w-full px-3 py-2 border rounded text-sm">
-        </div>
-      </div>
+    .account-card h3 { margin: 0 0 6px 0; color: var(--kwa-header); font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .account-title-group { display: flex; align-items: center; gap: 8px; }
+    .bank-logo { height: 24px; width: auto; max-width: 35px; object-fit: contain; vertical-align: middle; }
 
-      <button type="submit" class="bg-[#003366] hover:bg-[#002244] text-white px-5 py-2 rounded text-sm font-semibold transition">
-        Save Bank Account
-      </button>
-    </form>
+    .account-card .badge { font-size: 11px; padding: 3px 8px; border-radius: 12px; font-weight: 600; background: #e9ecef; color: #495057; }
+    .account-card .details { font-size: 12px; color: #6c757d; margin-bottom: 12px; }
+    
+    .balance-stats { display: flex; justify-content: space-between; font-size: 12px; border-top: 1px dashed #dee2e6; padding-top: 10px; margin-top: 8px; }
+    .curr-balance { font-size: 18px; font-weight: 700; color: #212529; margin-top: 4px; }
+    .curr-balance.negative { color: var(--red-debit); }
+
+    .statement-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: none; }
+    .statement-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+    .statement-header h2 { margin: 0; color: var(--kwa-header); font-size: 18px; }
+
+    .search-container { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .search-input { padding: 8px 12px; font-size: 13px; border: 1px solid #ced4da; border-radius: 4px; width: 100%; max-width: 360px; }
+
+    table.stmt-table { width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #333; }
+    table.stmt-table th, table.stmt-table td { border: 1px solid #333; padding: 9px 12px; text-align: left; }
+    table.stmt-table th { background-color: #e9ecef; font-weight: 600; color: #212529; position: sticky; top: 0; }
+    
+    .num { text-align: right; }
+    .credit { color: var(--green-credit); font-weight: 600; }
+    .debit { color: var(--red-debit); font-weight: 600; }
+    .running-bal { font-weight: 600; }
+
+    /* Pagination controls */
+    .pagination-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size: 13px; }
+    .pagination-btns { display: flex; gap: 6px; }
+    .page-btn { padding: 6px 12px; background: #e9ecef; border: 1px solid #ced4da; border-radius: 4px; cursor: pointer; font-weight: 600; color: #333; }
+    .page-btn:hover:not(:disabled) { background: #dde2e6; }
+    .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+  <div class="banner">
+    <div>
+      <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
+      <h2>BANK ACCOUNT BALANCES & STATEMENTS</h2>
+    </div>
+    <a href="index.html" class="btn-home">← Back to Dashboard</a>
   </div>
 
-  <!-- Bank Balances Ledger Card -->
-  <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-    <h3 class="text-md font-bold text-[#004080] border-b pb-2 mb-4">Registered Office Bank Accounts</h3>
-    <div class="overflow-x-auto">
-      <table class="w-full border-collapse text-xs">
+  <!-- Top KPI Tiles -->
+  <div class="kpi-container">
+    <div class="kpi-tile cash">
+      <div class="kpi-label">Cash Balance</div>
+      <div class="kpi-value" id="kpiCashVal">₹ 0.00</div>
+    </div>
+    <div class="kpi-tile drawing">
+      <div class="kpi-label">Drawing Balance</div>
+      <div class="kpi-value" id="kpiDrawingVal">₹ 0.00</div>
+    </div>
+    <div class="kpi-tile nop">
+      <div class="kpi-label">NOP Balance</div>
+      <div class="kpi-value" id="kpiNopVal">₹ 0.00</div>
+    </div>
+  </div>
+
+  <div class="summary-grid" id="accountsGrid">
+    <p>Loading live balances...</p>
+  </div>
+
+  <div class="statement-card" id="statementCard">
+    <div class="statement-header">
+      <div>
+        <h2 id="stmtAccountTitle">Account Statement</h2>
+        <span id="stmtAccountSub" style="font-size: 12px; color: #6c757d;">Select an account above to view transactions</span>
+      </div>
+      <div>
+        <span style="font-size: 12px; color: #6c757d;">Sorted by: <strong>Date Descending</strong></span>
+      </div>
+    </div>
+
+    <div class="search-container">
+      <input type="text" id="stmtSearchInput" class="search-input" placeholder="🔍 Search Ref, Cheque, Party, Description, Amount..." onkeyup="filterStatementRows()">
+      <div style="font-size: 12px; color: #6c757d;">Showing <strong>Date Descending</strong> order</div>
+    </div>
+
+    <div style="max-height: 500px; overflow-y: auto;">
+      <table class="stmt-table">
         <thead>
-          <tr class="bg-slate-800 text-white uppercase text-[10px]">
-            <th class="p-2 border text-center">Logo</th>
-            <th class="p-2 border">Nickname</th>
-            <th class="p-2 border">Bank Name</th>
-            <th class="p-2 border">Account No</th>
-            <th class="p-2 border">Category</th>
-            <th class="p-2 border text-right">Opening Balance (₹)</th>
-            <th class="p-2 border text-right">Passbook Balance (₹)</th>
-            <th class="p-2 border text-center">Action</th>
+          <tr>
+            <th style="width: 110px;">Date</th>
+            <th style="width: 110px;">Ref / Serial No</th>
+            <th style="width: 110px;">Cheque No</th>
+            <th>Party Name</th>
+            <th>Description</th>
+            <th class="num" style="width: 120px;">Credit (₹)</th>
+            <th class="num" style="width: 120px;">Debit (₹)</th>
+            <th class="num" style="width: 130px;">Running Bal (₹)</th>
           </tr>
         </thead>
-        <tbody id="bankTableBody">
-          <tr><td colspan="8" class="p-4 text-center text-slate-500 italic">Loading bank accounts...</td></tr>
-        </tbody>
+        <tbody id="stmtRows"></tbody>
       </table>
+    </div>
+
+    <!-- Pagination controls -->
+    <div class="pagination-bar">
+      <div id="pageInfo" style="color: #6c757d;">Showing 0-0 of 0 entries</div>
+      <div class="pagination-btns">
+        <button class="page-btn" id="prevPageBtn" onclick="changePage(-1)" disabled>Previous</button>
+        <span id="currentPageIndicator" style="padding: 6px 10px; font-weight: 600;">Page 1 of 1</span>
+        <button class="page-btn" id="nextPageBtn" onclick="changePage(1)" disabled>Next</button>
+      </div>
     </div>
   </div>
 
@@ -99,87 +157,280 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_qGT19bz8IOnF4-vWCbk4aQ_UCcaBc9U';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const bankLogos = {
-      "State Bank of India": "https://drive.google.com/uc?export=view&id=1epq0kaBXIMoZFB-fEWZ3SQcQNBuEwqib",
-      "Punjab National Bank": "https://drive.google.com/uc?export=view&id=1sPajG-NVVOpg2UQXOMMBSUy0C8HJ3wcB",
-      "Federal Bank": "https://drive.google.com/uc?export=view&id=1m8Y5D5Jak61WyyCrJuY1cZ3Y7W-7mgop",
-      "Indian Bank": "https://drive.google.com/uc?export=view&id=10tfiHP2ofwGCK2qc515fPWdWALK-lZ9L"
-    };
-
-    let currentOfficeId = '';
+    let globalAccountData = [];
+    let currentAccountIndex = 0;
+    let currentFilteredStatement = [];
+    let currentPage = 1;
+    const pageSize = 15;
 
     window.onload = async function() {
       const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) { window.location.href = 'login.html'; return; }
-      currentOfficeId = session.user.id;
-      loadBanks();
+      if (!session) {
+        window.location.href = 'login.html';
+        return;
+      }
+      loadLiveAccountBalances(session.user.id);
     };
 
-    async function loadBanks() {
-      const tbody = document.getElementById('bankTableBody');
-      const { data, error } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
+    function formatINR(amount) {
+      const num = Number(amount) || 0;
+      return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
 
-      if (error) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-red-500">Error loading banks: ${error.message}</td></tr>`;
-        return;
+    async function loadLiveAccountBalances(officeId) {
+      try {
+        // Fetch office settings
+        const { data: officeSet } = await supabaseClient.from('office_settings').select('*').eq('office_id', officeId).single();
+        if (officeSet) {
+          document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
+        }
+
+        // Fetch bank accounts
+        const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', officeId);
+        // Fetch transactions
+        const { data: txns } = await supabaseClient.from('transactions').select('*').eq('office_id', officeId).order('created_at', { ascending: true });
+
+        const accounts = [];
+
+        // 1. Add Cash Account
+        const cashTxns = txns.filter(t => t.category === 'Cash');
+        let cashOpening = 0; // Can pull from initial setup if stored, else 0
+        let cashCredits = 0;
+        let cashDebits = 0;
+
+        const cashStatement = [];
+        let cashRunning = cashOpening;
+
+        // Process cash transactions in chronological order for running balance
+        cashTxns.forEach(t => {
+          const amt = Number(t.amount) || 0;
+          let cred = 0, deb = 0;
+          if (t.type === 'Receipt') { cred = amt; cashCredits += amt; cashRunning += amt; }
+          else { deb = amt; cashDebits += amt; cashRunning -= amt; }
+
+          cashStatement.push({
+            date: t.date,
+            serialNo: t.serial_no,
+            chequeNo: t.cheque_no,
+            partyName: t.party_name,
+            accountCode: t.account_code,
+            description: t.description,
+            credit: cred,
+            debit: deb,
+            runningBalance: cashRunning,
+            timestamp: new Date(t.created_at || t.date).getTime()
+          });
+        });
+
+        const cashCurrentBal = cashOpening + cashCredits - cashDebits;
+        accounts.push({
+          nickname: 'Cash',
+          details: 'Cash Counter / Drawer',
+          category: 'Cash',
+          openingBalance: cashOpening,
+          currentBalance: cashCurrentBal,
+          totalCredits: cashCredits,
+          totalDebits: cashDebits,
+          statement: cashStatement.reverse() // Descending order for display
+        });
+
+        // 2. Add Bank Accounts
+        (banks || []).forEach(b => {
+          const bTxns = txns.filter(t => t.bank_nickname && t.bank_nickname.toLowerCase() === b.account_nickname.toLowerCase());
+          const openBal = Number(b.opening_balance) || 0;
+          let creds = 0;
+          let debs = 0;
+
+          const bStatement = [];
+          let bRunning = openBal;
+
+          bTxns.forEach(t => {
+            const amt = Number(t.amount) || 0;
+            let cred = 0, deb = 0;
+            if (t.type === 'Receipt') { cred = amt; creds += amt; bRunning += amt; }
+            else { deb = amt; debs += amt; bRunning -= amt; }
+
+            bStatement.push({
+              date: t.date,
+              serialNo: t.serial_no,
+              chequeNo: t.cheque_no,
+              partyName: t.party_name,
+              accountCode: t.account_code,
+              description: t.description,
+              credit: cred,
+              debit: deb,
+              runningBalance: bRunning,
+              timestamp: new Date(t.created_at || t.date).getTime()
+            });
+          });
+
+          const currentBal = openBal + creds - debs;
+          accounts.push({
+            nickname: b.account_nickname,
+            details: `${b.account_no} & ${b.bank_name}`,
+            bankName: b.bank_name,
+            category: b.category,
+            logoUrl: b.logo_url,
+            openingBalance: openBal,
+            currentBalance: currentBal,
+            totalCredits: creds,
+            totalDebits: debs,
+            statement: bStatement.reverse() // Descending order
+          });
+        });
+
+        renderAccounts({ accounts });
+      } catch (err) {
+        console.error('Error loading balances:', err);
+        Swal.fire('Error', 'Failed to load balances: ' + err.message, 'error');
       }
+    }
 
-      if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400 italic">No bank accounts configured yet.</td></tr>`;
-        return;
-      }
+    function renderAccounts(data) {
+      globalAccountData = data.accounts || [];
 
-      tbody.innerHTML = '';
-      data.forEach(b => {
-        const tr = document.createElement('tr');
-        tr.className = "border-b hover:bg-slate-50";
-        tr.innerHTML = `
-          <td class="p-2 border text-center"><img src="${b.logo_url}" alt="Logo" class="w-6 h-6 mx-auto object-contain"></td>
-          <td class="p-2 border font-bold">${b.account_nickname}</td>
-          <td class="p-2 border">${b.bank_name}</td>
-          <td class="p-2 border font-mono">${b.account_no}</td>
-          <td class="p-2 border">${b.category}</td>
-          <td class="p-2 border text-right font-mono">₹${Number(b.opening_balance).toFixed(2)}</td>
-          <td class="p-2 border text-right font-mono font-semibold text-emerald-600">₹${Number(b.passbook_balance).toFixed(2)}</td>
-          <td class="p-2 border text-center">
-            <button onclick="deleteBank(${b.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-[10px]">Delete</button>
-          </td>
+      let totalCash = 0;
+      let totalDrawing = 0;
+      let totalNop = 0;
+
+      const grid = document.getElementById('accountsGrid');
+      grid.innerHTML = '';
+
+      globalAccountData.forEach((acc, index) => {
+        const currBal = Number(acc.currentBalance) || 0;
+        const category = String(acc.category || '').toLowerCase().trim();
+
+        if (category === 'cash') totalCash += currBal;
+        else if (category === 'drawing') totalDrawing += currBal;
+        else if (category.includes('nop') || category.includes('non operative')) totalNop += currBal;
+
+        const balClass = currBal < 0 ? 'curr-balance negative' : 'curr-balance';
+        const logoHtml = acc.logoUrl ? `<img src="${acc.logoUrl}" class="bank-logo" alt="Logo">` : '';
+
+        const card = document.createElement('div');
+        card.className = 'account-card';
+        card.id = 'acc-card-' + index;
+        card.onclick = () => selectAccount(index);
+
+        card.innerHTML = `
+          <h3>
+            <span class="account-title-group">
+              ${logoHtml}
+              <span>${acc.nickname}</span>
+            </span>
+            <span class="badge">${acc.category}</span>
+          </h3>
+          <div class="details">${acc.details || ''}</div>
+          <div>
+            <span style="font-size: 11px; color: #6c757d; text-transform: uppercase;">Current Live Balance</span>
+            <div class="${balClass}">₹ ${formatINR(currBal)}</div>
+          </div>
+          <div class="balance-stats">
+            <span>Opening: <strong>₹${formatINR(acc.openingBalance)}</strong></span>
+            <span>CR: <strong class="credit">₹${formatINR(acc.totalCredits)}</strong></span>
+            <span>DR: <strong class="debit">₹${formatINR(acc.totalDebits)}</strong></span>
+          </div>
         `;
-        tbody.appendChild(tr);
+        grid.appendChild(card);
       });
-    }
 
-    async function handleBankSubmit(e) {
-      e.preventDefault();
-      const bankName = document.getElementById('bankName').value;
+      document.getElementById('kpiCashVal').innerText = `₹ ${formatINR(totalCash)}`;
+      document.getElementById('kpiDrawingVal').innerText = `₹ ${formatINR(totalDrawing)}`;
+      document.getElementById('kpiNopVal').innerText = `₹ ${formatINR(totalNop)}`;
 
-      const newBank = {
-        office_id: currentOfficeId,
-        account_nickname: document.getElementById('accountNickname').value.trim(),
-        bank_name: bankName,
-        account_no: document.getElementById('accountNo').value.trim(),
-        category: document.getElementById('bankCategory').value,
-        opening_balance: parseFloat(document.getElementById('openingBalance').value || 0),
-        passbook_balance: parseFloat(document.getElementById('passbookBalance').value || 0),
-        logo_url: bankLogos[bankName] || ''
-      };
-
-      const { error } = await supabaseClient.from('bank_master').insert([newBank]);
-      if (error) {
-        Swal.fire('Error', 'Failed to save bank: ' + error.message, 'error');
-      } else {
-        Swal.fire({ title: 'Success!', text: 'Bank account registered successfully!', icon: 'success', timer: 1500, showConfirmButton: false });
-        document.getElementById('bankForm').reset();
-        loadBanks();
+      if (globalAccountData.length > 0) {
+        selectAccount(0);
       }
     }
 
-    async function deleteBank(id) {
-      const confirmRes = await Swal.fire({ title: 'Delete Bank?', text: 'Remove this bank account setup?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444' });
-      if (!confirmRes.isConfirmed) return;
+    function selectAccount(index) {
+      currentAccountIndex = index;
+      document.querySelectorAll('.account-card').forEach(c => c.classList.remove('active'));
+      const activeCard = document.getElementById('acc-card-' + index);
+      if (activeCard) activeCard.classList.add('active');
 
-      const { error } = await supabaseClient.from('bank_master').delete().eq('id', id).eq('office_id', currentOfficeId);
-      if (error) { Swal.fire('Error', 'Delete failed: ' + error.message, 'error'); } else { loadBanks(); }
+      const acc = globalAccountData[index];
+      document.getElementById('stmtAccountTitle').innerText = `Statement: ${acc.nickname}`;
+      document.getElementById('stmtAccountSub').innerText = `${acc.category} Account | ${acc.details || ''} | Live Balance: ₹${formatINR(acc.currentBalance)}`;
+      
+      const searchInput = document.getElementById('stmtSearchInput');
+      if (searchInput) searchInput.value = '';
+
+      currentFilteredStatement = acc.statement || [];
+      currentPage = 1;
+      renderPaginatedStatement();
+      document.getElementById('statementCard').style.display = 'block';
+    }
+
+    function renderPaginatedStatement() {
+      const stmtRows = document.getElementById('stmtRows');
+      stmtRows.innerHTML = '';
+
+      const totalEntries = currentFilteredStatement.length;
+      const totalPages = Math.ceil(totalEntries / pageSize) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const startIdx = (currentPage - 1) * pageSize;
+      const endIdx = Math.min(startIdx + pageSize, totalEntries);
+      const pageSlice = currentFilteredStatement.slice(startIdx, endIdx);
+
+      if (pageSlice.length === 0) {
+        stmtRows.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#6c757d;">No transaction records found.</td></tr>`;
+      } else {
+        pageSlice.forEach(t => {
+          const creditTxt = t.credit > 0 ? `₹${t.credit.toFixed(2)}` : '-';
+          const debitTxt = t.debit > 0 ? `₹${t.debit.toFixed(2)}` : '-';
+          const descVal = `${t.accountCode ? '[' + t.accountCode + '] ' : ''}${t.description || '-'}`;
+
+          stmtRows.innerHTML += `
+            <tr>
+              <td>${t.date}</td>
+              <td><strong>${t.serialNo}</strong></td>
+              <td>${t.chequeNo || '-'}</td>
+              <td>${t.partyName || '-'}</td>
+              <td>${descVal}</td>
+              <td class="num credit">${creditTxt}</td>
+              <td class="num debit">${debitTxt}</td>
+              <td class="num running-bal">₹${formatINR(t.runningBalance)}</td>
+            </tr>`;
+        });
+      }
+
+      // Update Pagination Bar
+      document.getElementById('pageInfo').innerText = totalEntries > 0 ? `Showing ${startIdx + 1}-${endIdx} of ${totalEntries} entries` : `Showing 0 entries`;
+      document.getElementById('currentPageIndicator').innerText = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+      document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+    }
+
+    function changePage(direction) {
+      currentPage += direction;
+      renderPaginatedStatement();
+    }
+
+    function filterStatementRows() {
+      const filterText = document.getElementById('stmtSearchInput').value.toLowerCase().trim();
+      const acc = globalAccountData[currentAccountIndex];
+      if (!acc || !acc.statement) return;
+
+      if (!filterText) {
+        currentFilteredStatement = acc.statement;
+      } else {
+        currentFilteredStatement = acc.statement.filter(t => {
+          return String(t.date || '').toLowerCase().includes(filterText) ||
+                 String(t.serialNo || '').toLowerCase().includes(filterText) ||
+                 String(t.chequeNo || '').toLowerCase().includes(filterText) ||
+                 String(t.partyName || '').toLowerCase().includes(filterText) ||
+                 String(t.accountCode || '').toLowerCase().includes(filterText) ||
+                 String(t.description || '').toLowerCase().includes(filterText) ||
+                 (t.credit > 0 && t.credit.toFixed(2).includes(filterText)) ||
+                 (t.debit > 0 && t.debit.toFixed(2).includes(filterText));
+        });
+      }
+
+      currentPage = 1;
+      renderPaginatedStatement();
     }
   </script>
 </body>
