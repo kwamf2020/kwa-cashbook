@@ -6,52 +6,156 @@
   <title>KWA Initial Office Setup</title>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-100 text-slate-800 min-h-screen p-6 flex items-center justify-center">
+  <style>
 
-  <div class="bg-white p-8 rounded-lg shadow-md border border-slate-200 w-full max-w-2xl">
-    <div class="text-center mb-6">
-      <h1 class="text-xl font-bold uppercase text-[#003366]">Kerala Water Authority</h1>
-      <p class="text-xs text-slate-500">Initial Office & Cash Book Setup Wizard</p>
+    :root {
+      --kwa-primary: #003366;
+      --kwa-secondary: #004d99;
+      --kwa-accent: #0ea5e9;
+      --bg-page: #f1f5f9;
+      --card-bg: #ffffff;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --border-light: #e2e8f0;
+      --green-credit: #059669;
+      --red-debit: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body { 
+      display: none; /* Hidden until auth verified */
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background-color: var(--bg-page); 
+      color: var(--text-dark);
+      line-height: 1.5;
+    }
+    .container { max-width: 1440px; margin: 0 auto; }
+    
+    /* Unified Modern Banner */
+    .app-banner { 
+      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
+      color: #ffffff; 
+      padding: 18px 24px; 
+      border-radius: 10px; 
+      margin-bottom: 24px; 
+      box-shadow: 0 4px 12px rgba(0, 51, 102, 0.15); 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      flex-wrap: wrap; 
+      gap: 12px; 
+    }
+    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .banner-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+    .banner-subtitle { font-size: 13px; opacity: 0.9; font-weight: 500; }
+    .active-month-pill { 
+      background: rgba(255, 255, 255, 0.18); 
+      border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 2px 10px; 
+      border-radius: 999px; 
+      font-size: 12px; 
+      font-weight: 600; 
+    }
+    
+    /* Header Navigation Buttons */
+    .btn-nav-home { 
+      background-color: rgba(255, 255, 255, 0.15); 
+      color: #ffffff; 
+      border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 8px 16px; 
+      font-size: 13px; 
+      border-radius: 6px; 
+      text-decoration: none; 
+      font-weight: 600; 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 6px; 
+      transition: all 0.2s ease; 
+      cursor: pointer; 
+    }
+    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
+    .btn-signout { background-color: #dc2626; border-color: #b91c1c; }
+    .btn-signout:hover { background-color: #b91c1c; }
+
+    /* Cards & Containers */
+    .card { 
+      background: var(--card-bg); 
+      padding: 22px 24px; 
+      border-radius: 10px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); 
+      margin-bottom: 24px; 
+      border: 1px solid var(--border-light); 
+    }
+    .card-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      border-bottom: 2px solid var(--border-light); 
+      padding-bottom: 12px; 
+      margin-bottom: 18px; 
+      flex-wrap: wrap; 
+      gap: 10px; 
+    }
+    .card-header h3 { margin: 0; color: var(--kwa-primary); font-size: 17px; font-weight: 700; }
+
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .setup-wrapper { width: 100%; max-width: 820px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 18px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #475569; }
+    .form-group input, .form-group select { padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #fff; }
+    .bank-row { display: grid; grid-template-columns: 1.2fr 1.3fr 1.5fr 1.1fr 1.1fr 42px; gap: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; align-items: center; }
+    .bank-row input, .bank-row select { padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 12px; width: 100%; }
+    .btn-primary { background: var(--kwa-primary); color: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; width: 100%; transition: background 0.2s; }
+    .btn-primary:hover { background: #002244; }
+    .btn-add-bank { background: #0ea5e9; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn-del { background: #ef4444; color: #fff; border: none; padding: 7px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    @media (max-width: 700px) { .bank-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="setup-wrapper">
+    <div class="app-banner">
+      <div class="banner-left">
+        <h1>KERALA WATER AUTHORITY</h1>
+        <div class="banner-meta">
+          <span class="banner-subtitle">Initial Office & Cash Book Setup Wizard</span>
+        </div>
+      </div>
     </div>
 
-    <form id="setupForm" onsubmit="handleSetupSubmit(event)">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Office Name *</label>
-          <input type="text" id="officeName" required placeholder="e.g. PH Division Thiruvalla" class="w-full px-3 py-2 border rounded text-sm">
+    <div class="card">
+      <form id="setupForm" onsubmit="handleSetupSubmit(event)">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Office Name *</label>
+            <input type="text" id="officeName" required placeholder="e.g. PH Division Thiruvalla">
+          </div>
+          <div class="form-group">
+            <label>ARU Code *</label>
+            <input type="text" id="aruCode" required placeholder="e.g. ARU-1024">
+          </div>
+          <div class="form-group">
+            <label>Starting Month (Month-YYYY) *</label>
+            <input type="text" id="startingMonth" required placeholder="October-2026">
+          </div>
+          <div class="form-group">
+            <label>Initial Cash Opening Balance (₹) *</label>
+            <input type="number" step="0.01" id="cashOpening" required value="0.00">
+          </div>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">ARU Code *</label>
-          <input type="text" id="aruCode" required placeholder="e.g. ARU-1024" class="w-full px-3 py-2 border rounded text-sm">
+
+        <div class="card-header" style="margin-top: 24px;">
+          <h3>Configure Initial Bank Accounts</h3>
+          <button type="button" onclick="addBankSetupRow()" class="btn-add-bank">+ Add Bank Account</button>
         </div>
-      </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Starting Month (e.g. October-2026) *</label>
-          <input type="text" id="startingMonth" required placeholder="October-2026" class="w-full px-3 py-2 border rounded text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Initial Cash Opening Balance (₹) *</label>
-          <input type="number" step="0.01" id="cashOpening" required value="0.00" class="w-full px-3 py-2 border rounded text-sm">
-        </div>
-      </div>
+        <div id="bankSetupRows" style="margin-bottom: 22px;"></div>
 
-      <div class="border-t pt-4 mb-4 flex justify-between items-center">
-        <h3 class="text-sm font-bold text-[#004080]">Configure Initial Bank Accounts</h3>
-        <button type="button" onclick="addBankSetupRow()" class="bg-sky-500 hover:bg-sky-600 text-white text-xs px-3 py-1.5 rounded font-semibold">+ Add Bank</button>
-      </div>
-
-      <div id="bankSetupRows" class="space-y-3 mb-6">
-        <!-- Dynamic rows injected here -->
-      </div>
-
-      <button type="submit" class="w-full bg-[#003366] hover:bg-[#002244] text-white py-2 rounded text-sm font-semibold transition">
-        Complete Setup & Launch Cash Book
-      </button>
-    </form>
+        <button type="submit" class="btn-primary">Complete Setup & Launch Portal</button>
+      </form>
+    </div>
   </div>
 
   <script>
@@ -60,10 +164,10 @@
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const bankLogos = {
-      "State Bank of India": "https://drive.google.com/uc?export=view&id=1epq0kaBXIMoZFB-fEWZ3SQcQNBuEwqib",
-      "Punjab National Bank": "https://drive.google.com/uc?export=view&id=1sPajG-NVVOpg2UQXOMMBSUy0C8HJ3wcB",
-      "Federal Bank": "https://drive.google.com/uc?export=view&id=1m8Y5D5Jak61WyyCrJuY1cZ3Y7W-7mgop",
-      "Indian Bank": "https://drive.google.com/uc?export=view&id=10tfiHP2ofwGCK2qc515fPWdWALK-lZ9L"
+      "State Bank of India": "https://lh3.googleusercontent.com/d/1epq0kaBXIMoZFB-fEWZ3SQcQNBuEwqib",
+      "Punjab National Bank": "https://lh3.googleusercontent.com/d/1sPajG-NVVOpg2UQXOMMBSUy0C8HJ3wcB",
+      "Federal Bank": "https://lh3.googleusercontent.com/d/1m8Y5D5Jak61WyyCrJuY1cZ3Y7W-7mgop",
+      "Indian Bank": "https://lh3.googleusercontent.com/d/10tfiHP2ofwGCK2qc515fPWdWALK-lZ9L"
     };
 
     let userId = '';
@@ -73,32 +177,27 @@
       if (!session) { window.location.href = 'login.html'; return; }
       userId = session.user.id;
 
-      // Check if setup already done
       const { data } = await supabaseClient.from('office_settings').select('*').eq('office_id', userId).single();
-      if (data) {
-        window.location.href = 'index.html';
-      } else {
-        addBankSetupRow();
-      }
+      if (data) window.location.href = 'index.html';
+      else addBankSetupRow();
     };
 
     function addBankSetupRow() {
       const container = document.getElementById('bankSetupRows');
-      const rowId = 'bank_row_' + Date.now();
-      
+      const rowId = 'bank_row_' + Date.now() + '_' + Math.floor(Math.random()*100);
       let bankOptions = '';
       Object.keys(bankLogos).forEach(b => bankOptions += `<option value="${b}">${b}</option>`);
 
       const div = document.createElement('div');
       div.id = rowId;
-      div.className = "grid grid-cols-1 md:grid-cols-6 gap-2 p-3 bg-slate-50 border rounded text-xs items-center";
+      div.className = "bank-row";
       div.innerHTML = `
-        <div><input type="text" class="b-nick w-full p-1.5 border rounded text-xs" placeholder="Nickname" required></div>
-        <div><input type="text" class="b-acc w-full p-1.5 border rounded text-xs" placeholder="Account No" required></div>
-        <div><select class="b-name w-full p-1.5 border rounded text-xs bg-white" required>${bankOptions}</select></div>
-        <div><select class="b-cat w-full p-1.5 border rounded text-xs bg-white"><option value="Drawing">Drawing</option><option value="Non Operative">Non Operative</option></select></div>
-        <div><input type="number" step="0.01" class="b-open w-full p-1.5 border rounded text-xs text-right" placeholder="Opening Bal" required value="0.00"></div>
-        <div class="text-center"><button type="button" onclick="document.getElementById('${rowId}').remove()" class="bg-red-500 text-white px-2 py-1 rounded text-xs">✕</button></div>
+        <input type="text" class="b-nick" placeholder="Nickname (e.g. Establishment)" required>
+        <input type="text" class="b-acc" placeholder="Account Number" required>
+        <select class="b-name" required>${bankOptions}</select>
+        <select class="b-cat"><option value="Drawing">Drawing</option><option value="Non Operative">Non Operative</option></select>
+        <input type="number" step="0.01" class="b-open" placeholder="Opening Bal" required value="0.00" style="text-align:right;">
+        <button type="button" onclick="document.getElementById('${rowId}').remove()" class="btn-del">✕</button>
       `;
       container.appendChild(div);
     }
@@ -110,63 +209,41 @@
       const startingMonth = document.getElementById('startingMonth').value.trim();
       const cashOpening = parseFloat(document.getElementById('cashOpening').value || 0);
 
-      const bankRows = document.querySelectorAll('#bankSetupRows > div');
       const banksToInsert = [];
-
-      bankRows.forEach(r => {
-        const nickname = r.querySelector('.b-nick').value.trim();
-        const accNo = r.querySelector('.b-acc').value.trim();
+      document.querySelectorAll('#bankSetupRows > div').forEach(r => {
         const bankName = r.querySelector('.b-name').value;
-        const category = r.querySelector('.b-cat').value;
-        const openBal = parseFloat(r.querySelector('.b-open').value || 0);
-
         banksToInsert.push({
           office_id: userId,
-          account_nickname: nickname,
-          account_no: accNo,
+          account_nickname: r.querySelector('.b-nick').value.trim(),
+          account_no: r.querySelector('.b-acc').value.trim(),
           bank_name: bankName,
-          category: category,
-          opening_balance: openBal,
-          passbook_balance: openBal,
+          category: r.querySelector('.b-cat').value,
+          opening_balance: parseFloat(r.querySelector('.b-open').value || 0),
+          passbook_balance: parseFloat(r.querySelector('.b-open').value || 0),
           logo_url: bankLogos[bankName] || ''
         });
       });
 
       Swal.fire({ title: 'Saving Setup...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-      // Save office settings
       const { error: setErr } = await supabaseClient.from('office_settings').insert([{
-        office_id: userId,
-        office_name: officeName,
-        aru_code: aruCode,
-        starting_month: startingMonth,
-        current_active_month: startingMonth
+        office_id: userId, office_name: officeName, aru_code: aruCode,
+        starting_month: startingMonth, current_active_month: startingMonth
       }]);
-
       if (setErr) { Swal.fire('Error', setErr.message, 'error'); return; }
 
-      // Save banks
       if (banksToInsert.length > 0) {
         const { error: bankErr } = await supabaseClient.from('bank_master').insert(banksToInsert);
         if (bankErr) { Swal.fire('Error', bankErr.message, 'error'); return; }
       }
 
-      // Save initial cash opening in monthly_closings for starting month
       await supabaseClient.from('monthly_closings').insert([{
-        office_id: userId,
-        month_year: startingMonth,
-        account_type: 'Cash',
-        bank_nickname: null,
-        account_no: null,
-        category: 'Cash',
-        opening_balance: cashOpening,
-        total_receipts: 0,
-        total_payments: 0,
-        closing_balance: cashOpening
+        office_id: userId, month_year: startingMonth, account_type: 'Cash',
+        category: 'Cash', opening_balance: cashOpening, total_receipts: 0, total_payments: 0, closing_balance: cashOpening
       }]);
 
-      Swal.fire({ title: 'Success!', text: 'Office setup completed!', icon: 'success', timer: 1500, showConfirmButton: false });
-      window.location.href = 'index.html';
+      Swal.fire({ title: 'Success!', text: 'Office setup completed!', icon: 'success', timer: 1400, showConfirmButton: false });
+      setTimeout(() => window.location.href = 'index.html', 1400);
     }
   </script>
 </body>
