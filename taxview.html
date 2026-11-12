@@ -5,39 +5,145 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KWA Tax & Deductions Report</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-100 text-slate-800 min-h-screen p-6">
+  <style>
 
-  <!-- Top Banner -->
-  <div class="bg-[#003366] text-white p-4 rounded-lg shadow-md flex justify-between items-center mb-6">
-    <div>
-      <h1 class="text-lg font-bold uppercase">Kerala Water Authority</h1>
-      <p class="text-xs opacity-80">Tax & Recovery Summary Report</p>
-    </div>
-    <div class="flex gap-3">
-      <a href="index.html" class="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded font-semibold transition">← Back to Cash Book</a>
-      <a href="bankbalances.html" class="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded font-semibold transition">Bank Balances →</a>
-    </div>
-  </div>
-
-  <!-- Tax Report Card -->
-  <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-    <h3 class="text-md font-bold text-[#004080] border-b pb-2 mb-4">Tax & Recovery Ledger Summary</h3>
+    :root {
+      --kwa-primary: #003366;
+      --kwa-secondary: #004d99;
+      --kwa-accent: #0ea5e9;
+      --bg-page: #f1f5f9;
+      --card-bg: #ffffff;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --border-light: #e2e8f0;
+      --green-credit: #059669;
+      --red-debit: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body { 
+      display: none; /* Hidden until auth verified */
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background-color: var(--bg-page); 
+      color: var(--text-dark);
+      line-height: 1.5;
+    }
+    .container { max-width: 1440px; margin: 0 auto; }
     
-    <div class="overflow-x-auto">
-      <table class="w-full border-collapse text-xs">
-        <thead>
-          <tr class="bg-slate-800 text-white uppercase text-[10px]">
-            <th class="p-2 border">Account Code</th>
-            <th class="p-2 border">Particulars Description</th>
-            <th class="p-2 border text-right">Total Recovered Amount (₹)</th>
-          </tr>
-        </thead>
-        <tbody id="taxTableBody">
-          <tr><td colspan="3" class="p-4 text-center text-slate-500 italic">Calculating tax metrics...</td></tr>
-        </tbody>
-      </table>
+    /* Unified Modern Banner */
+    .app-banner { 
+      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
+      color: #ffffff; 
+      padding: 18px 24px; 
+      border-radius: 10px; 
+      margin-bottom: 24px; 
+      box-shadow: 0 4px 12px rgba(0, 51, 102, 0.15); 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      flex-wrap: wrap; 
+      gap: 12px; 
+    }
+    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .banner-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+    .banner-subtitle { font-size: 13px; opacity: 0.9; font-weight: 500; }
+    .active-month-pill { 
+      background: rgba(255, 255, 255, 0.18); 
+      border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 2px 10px; 
+      border-radius: 999px; 
+      font-size: 12px; 
+      font-weight: 600; 
+    }
+    
+    /* Header Navigation Buttons */
+    .btn-nav-home { 
+      background-color: rgba(255, 255, 255, 0.15); 
+      color: #ffffff; 
+      border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 8px 16px; 
+      font-size: 13px; 
+      border-radius: 6px; 
+      text-decoration: none; 
+      font-weight: 600; 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 6px; 
+      transition: all 0.2s ease; 
+      cursor: pointer; 
+    }
+    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
+    .btn-signout { background-color: #dc2626; border-color: #b91c1c; }
+    .btn-signout:hover { background-color: #b91c1c; }
+
+    /* Cards & Containers */
+    .card { 
+      background: var(--card-bg); 
+      padding: 22px 24px; 
+      border-radius: 10px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); 
+      margin-bottom: 24px; 
+      border: 1px solid var(--border-light); 
+    }
+    .card-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      border-bottom: 2px solid var(--border-light); 
+      padding-bottom: 12px; 
+      margin-bottom: 18px; 
+      flex-wrap: wrap; 
+      gap: 10px; 
+    }
+    .card-header h3 { margin: 0; color: var(--kwa-primary); font-size: 17px; font-weight: 700; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 8px; }
+    table.tax-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.tax-table th, table.tax-table td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; padding: 10px 14px; text-align: left; }
+    table.tax-table th { background-color: #1e293b; color: #ffffff; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+    table.tax-table tbody tr:hover { background-color: #f8fafc; }
+    .center { text-align: center !important; }
+    .num { text-align: right !important; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', monospace; font-weight: 700; color: var(--kwa-secondary); }
+    .total-row { background-color: #f1f5f9; font-weight: 700; border-top: 2px solid #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- TOP BANNER: ONLY HOME BUTTON IN HEADER -->
+    <div class="app-banner">
+      <div class="banner-left">
+        <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
+        <div class="banner-meta">
+          <span class="banner-subtitle">Tax & Recovery Summary Report</span>
+          <span class="active-month-pill" id="activeMonthDisplay">Active Month: Loading...</span>
+        </div>
+      </div>
+      <div>
+        <a href="index.html" class="btn-nav-home">🏠 Home</a>
+      </div>
+    </div>
+
+    <!-- Tax Report Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Tax & Recovery Ledger Summary</h3>
+      </div>
+      
+      <div class="table-wrap">
+        <table class="tax-table">
+          <thead>
+            <tr>
+              <th style="width: 140px;" class="center">Account Code</th>
+              <th>Particulars Description</th>
+              <th style="width: 200px;" class="num">Total Recovered Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody id="taxTableBody">
+            <tr><td colspan="3" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">Calculating tax metrics...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -46,19 +152,29 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_qGT19bz8IOnF4-vWCbk4aQ_UCcaBc9U';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    function formatINR(amount) {
+      return (Number(amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     window.onload = async function() {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) {
         window.location.href = 'login.html';
         return;
       }
+      document.body.style.display = 'block';
+      
+      const { data: officeSet } = await supabaseClient.from('office_settings').select('*').eq('office_id', session.user.id).single();
+      if (officeSet) {
+        document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
+        document.getElementById('activeMonthDisplay').innerText = `Active Month: ${officeSet.current_active_month}`;
+      }
+
       loadTaxReport(session.user.id);
     };
 
     async function loadTaxReport(officeId) {
       const tbody = document.getElementById('taxTableBody');
-      
-      // Fetch all transactions tagged as Recovery or matching tax account codes
       const { data, error } = await supabaseClient
         .from('transactions')
         .select('*')
@@ -66,36 +182,43 @@
         .eq('receipt_subtype', 'Recovery');
 
       if (error) {
-        tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">Error loading report: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="padding: 20px; text-align: center; color: #dc2626;">Error loading report: ${error.message}</td></tr>`;
         return;
       }
 
       if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400 italic">No tax recovery records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">No tax recovery records found.</td></tr>`;
         return;
       }
 
-      // Group by account code
       const summary = {};
+      let grandTotal = 0;
       data.forEach(t => {
-        if (!summary[t.account_code]) {
-          summary[t.account_code] = { particulars: t.particulars, total: 0 };
-        }
-        summary[t.account_code].total += Number(t.amount);
+        if (!summary[t.account_code]) summary[t.account_code] = { particulars: t.particulars, total: 0 };
+        const amt = Number(t.amount) || 0;
+        summary[t.account_code].total += amt;
+        grandTotal += amt;
       });
 
       tbody.innerHTML = '';
-      Object.keys(summary).forEach(code => {
+      Object.keys(summary).sort().forEach(code => {
         const item = summary[code];
         const tr = document.createElement('tr');
-        tr.className = "border-b hover:bg-slate-50";
         tr.innerHTML = `
-          <td class="p-2 border font-bold text-center">${code}</td>
-          <td class="p-2 border">${item.particulars}</td>
-          <td class="p-2 border text-right font-mono font-semibold text-blue-600">₹${item.total.toFixed(2)}</td>
+          <td class="center"><strong>${code}</strong></td>
+          <td>${item.particulars}</td>
+          <td class="num">₹ ${formatINR(item.total)}</td>
         `;
         tbody.appendChild(tr);
       });
+
+      const totalTr = document.createElement('tr');
+      totalTr.className = 'total-row';
+      totalTr.innerHTML = `
+        <td colspan="2" style="text-align: right;">TOTAL RECOVERIES</td>
+        <td class="num" style="color: var(--kwa-primary); font-size: 14px;">₹ ${formatINR(grandTotal)}</td>
+      `;
+      tbody.appendChild(totalTr);
     }
   </script>
 </body>
