@@ -75,8 +75,6 @@
       cursor: pointer; 
     }
     .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
-    .btn-signout { background-color: #dc2626; border-color: #b91c1c; }
-    .btn-signout:hover { background-color: #b91c1c; }
 
     /* Cards & Containers */
     .card { 
@@ -115,7 +113,29 @@
 
     .account-card h3 { margin: 0 0 6px 0; color: var(--kwa-primary); font-size: 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     .account-title-group { display: flex; align-items: center; gap: 8px; }
-    .bank-logo { height: 24px; width: auto; max-width: 34px; object-fit: contain; }
+    
+    /* Robust Bank Icon Styling */
+    .bank-logo { 
+      height: 28px; 
+      width: 28px; 
+      object-fit: contain; 
+      border-radius: 50%; 
+      background: #f8fafc; 
+      padding: 2px;
+      border: 1px solid var(--border-light);
+    }
+    .bank-icon-fallback {
+      height: 28px;
+      width: 28px;
+      border-radius: 50%;
+      background: var(--kwa-primary);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
 
     .account-card .badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 600; background: #e2e8f0; color: #334155; }
     .account-card .details { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
@@ -147,7 +167,7 @@
 </head>
 <body>
   <div class="container">
-    <!-- TOP BANNER: ONLY HOME BUTTON IN HEADER -->
+    <!-- TOP BANNER -->
     <div class="app-banner">
       <div class="banner-left">
         <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
@@ -234,11 +254,13 @@
     let currentPage = 1;
     const pageSize = 15;
 
+    // Reliable Wikimedia / Public CDN Bank Logos & Fallbacks
     const BANK_LOGOS = {
-      sbi: "https://lh3.googleusercontent.com/d/1epq0kaBXIMoZFB-fEWZ3SQcQNBuEwqib",
-      pnb: "https://lh3.googleusercontent.com/d/1sPajG-NVVOpg2UQXOMMBSUy0C8HJ3wcB",
-      federal: "https://lh3.googleusercontent.com/d/1m8Y5D5Jak61WyyCrJuY1cZ3Y7W-7mgop",
-      indian: "https://lh3.googleusercontent.com/d/10tfiHP2ofwGCK2qc515fPWdWALK-lZ9L"
+      sbi: "https://upload.wikimedia.org/wikipedia/commons/c/cc/State_Bank_of_India_logo.svg",
+      pnb: "https://upload.wikimedia.org/wikipedia/en/2/2f/Punjab_National_Bank_Logo.svg",
+      federal: "https://upload.wikimedia.org/wikipedia/en/9/9c/Federal_Bank_logo.svg",
+      indian: "https://upload.wikimedia.org/wikipedia/en/3/3d/Indian_Bank_logo.svg",
+      kwa: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
     };
 
     window.onload = async function() {
@@ -296,15 +318,11 @@
           const bNick = (b.account_nickname || '').trim().toLowerCase();
           const openBal = Number(b.opening_balance) || 0;
 
-          // Filter bank transactions
           const bTxns = (txns || []).filter(t => t.bank_nickname && t.bank_nickname.trim().toLowerCase() === bNick);
 
-          // Group payments by CBV serial_no and sum their amounts
           const paymentMap = {};
-          // Group receipts by txn_id or serial_no
           const receiptMap = {};
-          // Map to track linked receipts for a CBV
-          const cbvLinkedReceipts = {}; // cbvSerial -> sum of receipt amounts
+          const cbvLinkedReceipts = {}; 
 
           bTxns.forEach(t => {
             const type = (t.type || '').trim().toLowerCase();
@@ -330,7 +348,6 @@
                 if (!cbvLinkedReceipts[linkedCbv]) cbvLinkedReceipts[linkedCbv] = 0;
                 cbvLinkedReceipts[linkedCbv] += amt;
               } else {
-                // Standalone receipt (Direct Bank deposit)
                 receiptMap[t.txn_id || Math.random()] = {
                   date: t.date,
                   serialNo: t.serial_no,
@@ -347,7 +364,6 @@
           let creds = 0, debs = 0, bRunning = openBal;
           const bStatement = [];
 
-          // Add standalone bank receipts (Credits)
           Object.values(receiptMap).forEach(r => {
             creds += r.amount;
             bRunning += r.amount;
@@ -357,7 +373,6 @@
             });
           });
 
-          // Add net bank payments (CBV gross amount minus connected CBR receipts)
           Object.values(paymentMap).forEach(p => {
             const cbvKey = String(p.serialNo).trim();
             const linkedRecSum = cbvLinkedReceipts[cbvKey] || 0;
@@ -404,15 +419,22 @@
         else if (category.includes('nop') || category.includes('non operative')) totalNop += currBal;
 
         const balClass = currBal < 0 ? 'curr-balance negative' : 'curr-balance';
-        const searchStr = ((acc.nickname || '') + ' ' + (acc.details || '')).toLowerCase();
+        const searchStr = ((acc.nickname || '') + ' ' + (acc.details || '') + ' ' + (acc.bankName || '')).toLowerCase();
+        
         let logoSrc = acc.logoUrl || '';
         if (!logoSrc) {
           if (searchStr.includes('sbi') || searchStr.includes('state bank')) logoSrc = BANK_LOGOS.sbi;
           else if (searchStr.includes('pnb') || searchStr.includes('punjab national')) logoSrc = BANK_LOGOS.pnb;
           else if (searchStr.includes('federal')) logoSrc = BANK_LOGOS.federal;
           else if (searchStr.includes('indian')) logoSrc = BANK_LOGOS.indian;
+          else if (category === 'cash') logoSrc = BANK_LOGOS.kwa;
         }
-        const logoHtml = logoSrc ? `<img src="${logoSrc}" class="bank-logo" alt="Logo">` : '';
+
+        // Robust Image with Fallback Initials/Icon
+        const firstLetter = (acc.nickname || 'B').charAt(0).toUpperCase();
+        const logoHtml = logoSrc 
+          ? `<img src="${logoSrc}" class="bank-logo" alt="Logo" onerror="this.onerror=null; this.replaceWith(Object.assign(document.createElement('div'), {className:'bank-icon-fallback', innerText:'${firstLetter}'}));">`
+          : `<div class="bank-icon-fallback">${firstLetter}</div>`;
 
         const card = document.createElement('div');
         card.className = 'account-card';
@@ -446,7 +468,7 @@
       drawingEl.innerText = `₹ ${formatINR(totalDrawing)}`;
       drawingEl.className = drawingEl < 0 ? 'kpi-value negative' : 'kpi-value';
       nopEl.innerText = `₹ ${formatINR(totalNop)}`;
-      nopEl.className = totalNop < 0 ? 'kpi-value negative' : 'kpi-value';
+      nopEl.className = nopEl < 0 ? 'kpi-value negative' : 'kpi-value';
 
       if (globalAccountData.length > 0) selectAccount(0);
     }
@@ -532,5 +554,3 @@
       renderPaginatedStatement();
     }
   </script>
-</body>
-</html>
