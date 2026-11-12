@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KWA Tax & Deductions Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen p-6">
+
+  <!-- Top Banner -->
+  <div class="bg-[#003366] text-white p-4 rounded-lg shadow-md flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-lg font-bold uppercase">Kerala Water Authority</h1>
+      <p class="text-xs opacity-80">Tax & Recovery Summary Report</p>
+    </div>
+    <div class="flex gap-3">
+      <a href="index.html" class="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded font-semibold transition">← Back to Cash Book</a>
+      <a href="bankbalances.html" class="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded font-semibold transition">Bank Balances →</a>
+    </div>
+  </div>
+
+  <!-- Tax Report Card -->
+  <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+    <h3 class="text-md font-bold text-[#004080] border-b pb-2 mb-4">Tax & Recovery Ledger Summary</h3>
+    
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-xs">
+        <thead>
+          <tr class="bg-slate-800 text-white uppercase text-[10px]">
+            <th class="p-2 border">Account Code</th>
+            <th class="p-2 border">Particulars Description</th>
+            <th class="p-2 border text-right">Total Recovered Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody id="taxTableBody">
+          <tr><td colspan="3" class="p-4 text-center text-slate-500 italic">Calculating tax metrics...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://nayvftqylbjwspmjxbjc.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_qGT19bz8IOnF4-vWCbk4aQ_UCcaBc9U';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    window.onload = async function() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        window.location.href = 'login.html';
+        return;
+      }
+      loadTaxReport(session.user.id);
+    };
+
+    async function loadTaxReport(officeId) {
+      const tbody = document.getElementById('taxTableBody');
+      
+      // Fetch all transactions tagged as Recovery or matching tax account codes
+      const { data, error } = await supabaseClient
+        .from('transactions')
+        .select('*')
+        .eq('office_id', officeId)
+        .eq('receipt_subtype', 'Recovery');
+
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">Error loading report: ${error.message}</td></tr>`;
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400 italic">No tax recovery records found.</td></tr>`;
+        return;
+      }
+
+      // Group by account code
+      const summary = {};
+      data.forEach(t => {
+        if (!summary[t.account_code]) {
+          summary[t.account_code] = { particulars: t.particulars, total: 0 };
+        }
+        summary[t.account_code].total += Number(t.amount);
+      });
+
+      tbody.innerHTML = '';
+      Object.keys(summary).forEach(code => {
+        const item = summary[code];
+        const tr = document.createElement('tr');
+        tr.className = "border-b hover:bg-slate-50";
+        tr.innerHTML = `
+          <td class="p-2 border font-bold text-center">${code}</td>
+          <td class="p-2 border">${item.particulars}</td>
+          <td class="p-2 border text-right font-mono font-semibold text-blue-600">₹${item.total.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
