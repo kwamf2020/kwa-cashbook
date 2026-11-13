@@ -103,6 +103,8 @@
       border: 1px solid #cfdcec; border-radius: var(--radius-sm); padding: 16px 18px; margin-bottom: 22px;
     }
     .mode-box .grid-form { margin: 0; }
+    .grid-details { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-details .span-all { grid-column: 1 / -1; }
     .form-group { display: flex; flex-direction: column; }
     .form-group label { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; color: #334155; }
     .form-group input, .form-group select {
@@ -153,15 +155,29 @@
     #saveBtn:hover { filter: brightness(.9); background: var(--mode-color); }
 
     .btn-action {
-      width: 32px; height: 32px; font-size: 14px; border-radius: 8px; margin: 0 2px; cursor: pointer;
+      width: 25px; height: 25px; font-size: 12px; border-radius: 6px; margin: 0; padding: 0; cursor: pointer;
       border: none; color: #fff; transition: transform .1s, filter .15s; display: inline-flex; align-items: center; justify-content: center;
     }
     .btn-action:hover { filter: brightness(.92); transform: scale(1.08); }
     .btn-edit { background: #f59e0b; }
     .btn-delete { background: #ef4444; }
-    .action-cell { white-space: nowrap; text-align: center; }
+    .action-cell { white-space: nowrap; text-align: center; display: table-cell; }
+    .action-cell .btn-action + .btn-action { margin-left: 3px; }
 
     .top-action-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .live-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+    .total-card {
+      border-radius: var(--radius-sm); padding: 14px 18px; border: 1.5px solid; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .total-card.rec { background: var(--green-soft); border-color: #6ee7b7; }
+    .total-card.pay { background: var(--red-soft); border-color: #fca5a5; }
+    .total-title { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; }
+    .total-card.rec .total-title { color: var(--green-credit); }
+    .total-card.pay .total-title { color: var(--red-debit); }
+    .total-count { display: block; font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+    .total-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+    .total-card.rec .total-value { color: var(--green-credit); }
+    .total-card.pay .total-value { color: var(--red-debit); }
     .form-actions {
       margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--border-light);
       display: flex; gap: 12px; flex-wrap: wrap;
@@ -201,16 +217,16 @@
     .filter-controls-left label { display: block; font-size: 13.5px; font-weight: 600; color: #334155; margin-bottom: 6px; }
 
     .cashbook-table-wrapper {
-      max-height: 72vh; overflow: auto; border: 1px solid #cbd5e1; border-radius: var(--radius-sm); background: #fff;
+      max-height: 72vh; overflow: auto; border: 2px solid #334155; border-radius: var(--radius-sm); background: #fff;
     }
-    table.cb-table { width: 100%; min-width: 1500px; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+    table.cb-table { width: 100%; min-width: 1500px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px; border-top: 1px solid #334155; border-left: 1px solid #334155; }
     table.cb-table th, table.cb-table td {
-      border-bottom: 1px solid #e8edf3; border-right: 1px solid #f1f5f9; padding: 9px 8px; text-align: left;
+      border-bottom: 1px solid #334155; border-right: 1px solid #334155; padding: 8px 6px; text-align: left;
       vertical-align: middle; white-space: normal; word-break: break-word;
     }
     table.cb-table th {
       background: #1e293b; color: #fff; font-weight: 600; position: sticky; top: 0; z-index: 2;
-      text-transform: uppercase; font-size: 11px; letter-spacing: .4px; border-bottom: 2px solid #0f172a;
+      text-transform: uppercase; font-size: 11px; letter-spacing: .4px;
     }
     table.cb-table thead tr:nth-child(1) th { font-size: 12.5px; letter-spacing: .8px; padding: 11px 8px; }
     table.cb-table thead tr:nth-child(1) th:nth-child(1) { background: #047857 !important; }
@@ -220,10 +236,10 @@
     table.cb-table tbody tr:hover { background-color: #e0f2fe !important; }
     table.cb-table td.num { white-space: nowrap; }
 
-    .table-separator { width: 8px !important; padding: 0 !important; background: #94a3b8 !important; border: none !important; }
+    .table-separator { width: 8px !important; padding: 0 !important; background: #94a3b8 !important; border-bottom: 1px solid #334155 !important; border-right: 1px solid #334155 !important; }
     .center { text-align: center !important; }
     .num { text-align: right !important; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', ui-monospace, Consolas, monospace; }
-    .blank-cell { background-color: #fafbfc !important; }
+    .blank-cell { background-color: transparent !important; }
     .desc-subtext { display: block; font-size: 11.5px; color: var(--text-muted); font-style: italic; margin-top: 2px; }
     .standalone-green-text { color: var(--green-credit) !important; font-weight: 600; }
 
@@ -232,12 +248,14 @@
     .swal2-styled { border-radius: 10px !important; font-weight: 600 !important; }
 
     /* ---------- Responsive ---------- */
+    @media (max-width: 1100px) and (min-width: 721px) { .grid-details { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 720px) {
       .container { padding: 0 12px 30px; }
       .app-banner { margin: 0 -12px 16px; padding: 12px 14px; }
       .banner-left h1 { font-size: 15px; }
       .card { padding: 18px 16px; }
-      .grid-form { grid-template-columns: 1fr; }
+      .grid-form, .grid-details { grid-template-columns: 1fr; }
+      .live-totals { grid-template-columns: 1fr; }
       .grid-form > .form-group[style*="span 2"] { grid-column: auto !important; }
       .top-action-bar .btn { flex: 1 1 45%; }
       .form-actions .btn { flex: 1; }
@@ -283,7 +301,7 @@
         </div>
 
         <div class="section-label"><span class="step-badge">2</span> Voucher details</div>
-        <div class="grid-form">
+        <div class="grid-form grid-details">
           <div class="form-group">
             <label>Date *</label>
             <input type="text" id="date" placeholder="dd-mm-yyyy" required onchange="onDateChange()" inputmode="numeric" autocomplete="off">
@@ -333,13 +351,13 @@
             <label id="payeeLabel">Payee / Paid To</label>
             <input type="text" id="payee" placeholder="e.g. Name / Firm / Contractor">
           </div>
-          <div class="form-group" id="descriptionGroup">
-            <label>General Description / Voucher Remarks</label>
-            <input type="text" id="description" placeholder="e.g. General description of transaction">
-          </div>
           <div class="form-group" id="gstGroup" style="display: none;">
             <label>GST Amount (₹) [Optional]</label>
             <input type="number" id="gstAmount" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group span-all" id="descriptionGroup">
+            <label>General Description / Voucher Remarks</label>
+            <input type="text" id="description" placeholder="e.g. General description of transaction">
           </div>
         </div>
 
@@ -396,6 +414,17 @@
           </div>
         </div>
 
+        <div class="live-totals" aria-live="polite">
+          <div class="total-card rec">
+            <div class="total-title">Receipts Side (CBR) Total<span class="total-count" id="recTotalCount">0 items</span></div>
+            <div class="total-value" id="recTotalValue">₹ 0.00</div>
+          </div>
+          <div class="total-card pay">
+            <div class="total-title">Payments Side (CBV) Total<span class="total-count" id="payTotalCount">0 items</span></div>
+            <div class="total-value" id="payTotalValue">₹ 0.00</div>
+          </div>
+        </div>
+
         <div class="form-actions">
           <button type="submit" class="btn" id="saveBtn">Save Entry</button>
           <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
@@ -434,23 +463,23 @@
               <th style="width: 6.5%;">Date</th>
               <th style="width: 6.5%;">CBR No</th>
               <th style="width: 4%;">Code</th>
-              <th style="width: 12%;">Particulars</th>
+              <th style="width: 11%;">Particulars</th>
               <th class="num" style="width: 4.5%;">Cash</th>
               <th class="num" style="width: 4.5%;">Drawing</th>
               <th class="num" style="width: 4.5%;">Non Oper.</th>
-              <th style="width: 4.5%;" class="center">Action</th>
+              <th style="width: 5.5%;" class="center">Action</th>
 
               <th class="table-separator"></th>
 
               <th style="width: 6.5%;">Date</th>
               <th style="width: 6.5%;">CBV No</th>
               <th style="width: 4%;">Code</th>
-              <th style="width: 11%;">Particulars</th>
+              <th style="width: 10.5%;">Particulars</th>
               <th style="width: 6%;" class="center">Cheque</th>
               <th class="num" style="width: 4.5%;">Cash</th>
               <th class="num" style="width: 4.5%;">Drawing</th>
               <th class="num" style="width: 4.5%;">Non Oper.</th>
-              <th style="width: 4.5%;" class="center">Action</th>
+              <th style="width: 5.5%;" class="center">Action</th>
             </tr>
           </thead>
           <tbody id="cashBookCombinedRows"></tbody>
@@ -840,6 +869,7 @@
         Swal.fire({ title: 'Success!', text: 'Transaction saved successfully!', icon: 'success', timer: 1500, showConfirmButton: false });
         resetForm();
         await loadCashBookData();
+        scrollLedgerToBottom();
       } catch (err) {
         Swal.close();
         Swal.fire('Error', 'Save Error: ' + err.message, 'error');
@@ -902,11 +932,15 @@
         return;
       }
 
-      const matchedColors = ['#f8fafc', '#f1f5f9', '#e2e8f0', '#f8fafc'];
+      // Light background per CBV: the payment voucher and all its connected CBRs share one colour
+      const cbvColors = ['#e8f1ff', '#fff4dc', '#e6f8ec', '#fdeaf3', '#efeafd', '#e3f7f7'];
       pairs.forEach(pair => {
         const tr = document.createElement('tr');
-        if (pair.isMatchedPair && pair.pairId) tr.style.backgroundColor = matchedColors[(pair.pairId - 1) % matchedColors.length];
-        else if (pair.isStandaloneCbr) tr.style.backgroundColor = '#ffffff';
+        const cbvKey = pair.payment ? pair.payment.serial_no : ((pair.receipt && pair.receipt.linked_cbv) ? pair.receipt.linked_cbv : null);
+        if (cbvKey !== null && cbvKey !== undefined && cbvKey !== '') {
+          const n = parseInt(String(cbvKey).replace(/\D/g, ''), 10) || 0;
+          tr.style.backgroundColor = cbvColors[n % cbvColors.length];
+        } else if (pair.isStandaloneCbr) tr.style.backgroundColor = '#ffffff';
 
         if (pair.receipt) {
           const r = pair.receipt;
@@ -1030,7 +1064,7 @@
 
       document.getElementById('formTitle').innerText = `Editing ${head.type} #${head.serial_no} (${head.date})`;
       document.getElementById('saveBtn').innerText = 'Update Entry';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollPageToTop();
     }
 
     async function deleteVoucher(serialNo, type, date) {
@@ -1315,6 +1349,64 @@
         Swal.close(); Swal.fire('Error', 'Excel export failed: ' + err.message, 'error');
       }
     }
+
+    // ---------- Display helpers (no effect on data or saving logic) ----------
+    function scrollPageToTop() {
+      // Run now and again after the confirm dialog's close animation, which can otherwise cancel the scroll
+      const go = () => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      };
+      go();
+      setTimeout(go, 120);
+      setTimeout(go, 350);
+    }
+
+    function scrollLedgerToBottom() {
+      const wrap = document.querySelector('.cashbook-table-wrapper');
+      if (!wrap) return;
+      const go = () => {
+        wrap.scrollTo({ top: wrap.scrollHeight, behavior: 'smooth' });
+        wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      };
+      requestAnimationFrame(go);
+      setTimeout(go, 350);
+    }
+
+    // Live totals for the voucher being entered (display only)
+    (function () {
+      const fmt = n => (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const sumRows = sel => {
+        let total = 0, count = 0;
+        document.querySelectorAll(sel).forEach(inp => {
+          const v = parseFloat(inp.value);
+          if (!isNaN(v)) { total += v; count++; }
+        });
+        return { total, count };
+      };
+      const show = (valId, cntId, d) => {
+        document.getElementById(valId).innerText = `₹ ${fmt(d.total)}`;
+        document.getElementById(cntId).innerText = `${d.count} ${d.count === 1 ? 'item' : 'items'}`;
+      };
+      window.updateLiveTotals = function () {
+        const type = document.getElementById('type').value;
+        const combined = document.getElementById('entryMode').value === 'Combined' && document.getElementById('editingMode').value !== 'true';
+        const main = sumRows('#itemsRows .item-amount');
+        const paired = combined ? sumRows('#pairedItemsRows .paired-item-amount') : { total: 0, count: 0 };
+        const none = { total: 0, count: 0 };
+        if (type === 'Payment') { show('payTotalValue', 'payTotalCount', main); show('recTotalValue', 'recTotalCount', paired); }
+        else { show('recTotalValue', 'recTotalCount', main); show('payTotalValue', 'payTotalCount', none); }
+      };
+      ['itemsRows', 'pairedItemsRows'].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('input', window.updateLiveTotals);
+        new MutationObserver(window.updateLiveTotals).observe(el, { childList: true });
+      });
+      new MutationObserver(window.updateLiveTotals).observe(document.getElementById('serialNoLabel'), { childList: true, characterData: true, subtree: true });
+      ['type', 'entryMode'].forEach(id => document.getElementById(id).addEventListener('change', window.updateLiveTotals));
+      window.updateLiveTotals();
+    })();
   </script>
 </body>
 </html>
