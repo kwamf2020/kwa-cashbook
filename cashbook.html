@@ -155,14 +155,14 @@
     #saveBtn:hover { filter: brightness(.9); background: var(--mode-color); }
 
     .btn-action {
-      width: 25px; height: 25px; font-size: 12px; border-radius: 6px; margin: 0; padding: 0; cursor: pointer;
+      width: 22px; height: 22px; font-size: 11px; border-radius: 6px; margin: 0; padding: 0; cursor: pointer;
       border: none; color: #fff; transition: transform .1s, filter .15s; display: inline-flex; align-items: center; justify-content: center;
     }
     .btn-action:hover { filter: brightness(.92); transform: scale(1.08); }
     .btn-edit { background: #f59e0b; }
     .btn-delete { background: #ef4444; }
     .action-cell { white-space: nowrap; text-align: center; display: table-cell; }
-    .action-cell .btn-action + .btn-action { margin-left: 3px; }
+    .action-cell .btn-action + .btn-action { margin-left: 2px; }
 
     .top-action-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .live-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
@@ -217,26 +217,35 @@
     .filter-controls-left label { display: block; font-size: 13.5px; font-weight: 600; color: #334155; margin-bottom: 6px; }
 
     .cashbook-table-wrapper {
-      max-height: 72vh; overflow: auto; border: 2px solid #334155; border-radius: var(--radius-sm); background: #fff;
+      max-height: 72vh; overflow-x: hidden; overflow-y: auto; border: 2px solid #334155; border-radius: var(--radius-sm); background: #fff;
     }
-    table.cb-table { width: 100%; min-width: 1500px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px; border-top: 1px solid #334155; border-left: 1px solid #334155; }
+    table.cb-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 12px; border-top: 1px solid #334155; border-left: 1px solid #334155; }
     table.cb-table th, table.cb-table td {
-      border-bottom: 1px solid #334155; border-right: 1px solid #334155; padding: 8px 6px; text-align: left;
+      border-bottom: 1px solid #334155; border-right: 1px solid #334155; padding: 6px 4px; text-align: left;
       vertical-align: middle; white-space: normal; word-break: break-word;
     }
     table.cb-table th {
       background: #1e293b; color: #fff; font-weight: 600; position: sticky; top: 0; z-index: 2;
-      text-transform: uppercase; font-size: 11px; letter-spacing: .4px;
+      text-transform: uppercase; font-size: 10.5px; letter-spacing: .2px;
     }
-    table.cb-table thead tr:nth-child(1) th { font-size: 12.5px; letter-spacing: .8px; padding: 11px 8px; }
+    table.cb-table thead tr:nth-child(1) th { font-size: 12px; letter-spacing: .8px; padding: 10px 6px; }
     table.cb-table thead tr:nth-child(1) th:nth-child(1) { background: #047857 !important; }
     table.cb-table thead tr:nth-child(1) th:nth-child(3) { background: #b91c1c !important; }
     table.cb-table thead tr:nth-child(2) th { top: 41px; }
-    table.cb-table tbody tr { transition: background-color .12s; }
-    table.cb-table tbody tr:hover { background-color: #e0f2fe !important; }
-    table.cb-table td.num { white-space: nowrap; }
+    table.cb-table tbody tr:hover td { box-shadow: inset 0 2px 0 #0284c7, inset 0 -2px 0 #0284c7; }
+    table.cb-table tbody tr:hover td:first-child { box-shadow: inset 0 2px 0 #0284c7, inset 0 -2px 0 #0284c7, inset 2px 0 0 #0284c7; }
+    table.cb-table tbody tr:hover td:last-child { box-shadow: inset 0 2px 0 #0284c7, inset 0 -2px 0 #0284c7, inset -2px 0 0 #0284c7; }
+    table.cb-table td.num { white-space: nowrap; font-size: 11.5px; }
+    table.cb-table tbody td:nth-child(1), table.cb-table tbody td:nth-child(10) { white-space: nowrap; font-size: 11.5px; }
+    /* Particulars: max two lines, full text shown as tooltip on hover */
+    .pc-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-two { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    table.cb-table td[title] { cursor: help; }
+    .action-cell { cursor: default; }
+    @media (max-width: 1280px) { table.cb-table { font-size: 11px; } table.cb-table td.num, table.cb-table tbody td:nth-child(1), table.cb-table tbody td:nth-child(10) { font-size: 10.5px; } }
+    @media (max-width: 1000px) { table.cb-table { font-size: 9.5px; } table.cb-table th { font-size: 8.5px; } table.cb-table td.num, table.cb-table tbody td:nth-child(1), table.cb-table tbody td:nth-child(10) { font-size: 9px; } }
 
-    .table-separator { width: 8px !important; padding: 0 !important; background: #94a3b8 !important; border-bottom: 1px solid #334155 !important; border-right: 1px solid #334155 !important; }
+    .table-separator { width: 6px !important; padding: 0 !important; background: #94a3b8 !important; border-bottom: 1px solid #334155 !important; border-right: 1px solid #334155 !important; }
     .center { text-align: center !important; }
     .num { text-align: right !important; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', ui-monospace, Consolas, monospace; }
     .blank-cell { background-color: transparent !important; }
@@ -460,26 +469,26 @@
               <th colspan="9" style="text-align: center;">PAYMENTS SIDE (CBV)</th>
             </tr>
             <tr>
-              <th style="width: 6.5%;">Date</th>
-              <th style="width: 6.5%;">CBR No</th>
-              <th style="width: 4%;">Code</th>
-              <th style="width: 11%;">Particulars</th>
-              <th class="num" style="width: 4.5%;">Cash</th>
-              <th class="num" style="width: 4.5%;">Drawing</th>
-              <th class="num" style="width: 4.5%;">Non Oper.</th>
-              <th style="width: 5.5%;" class="center">Action</th>
+              <th style="width: 4.9%;">Date</th>
+              <th style="width: 6.2%;">CBR No</th>
+              <th style="width: 3%;">Code</th>
+              <th style="width: 15.5%;">Particulars</th>
+              <th class="num" style="width: 5%;">Cash</th>
+              <th class="num" style="width: 5%;">Drawing</th>
+              <th class="num" style="width: 5%;">Non Oper.</th>
+              <th style="width: 4.2%;" class="center">Action</th>
 
               <th class="table-separator"></th>
 
-              <th style="width: 6.5%;">Date</th>
-              <th style="width: 6.5%;">CBV No</th>
-              <th style="width: 4%;">Code</th>
-              <th style="width: 10.5%;">Particulars</th>
-              <th style="width: 6%;" class="center">Cheque</th>
-              <th class="num" style="width: 4.5%;">Cash</th>
-              <th class="num" style="width: 4.5%;">Drawing</th>
-              <th class="num" style="width: 4.5%;">Non Oper.</th>
-              <th style="width: 5.5%;" class="center">Action</th>
+              <th style="width: 4.9%;">Date</th>
+              <th style="width: 4.2%;">CBV No</th>
+              <th style="width: 3%;">Code</th>
+              <th style="width: 15.5%;">Particulars</th>
+              <th style="width: 4.4%;" class="center">Cheque</th>
+              <th class="num" style="width: 5%;">Cash</th>
+              <th class="num" style="width: 5%;">Drawing</th>
+              <th class="num" style="width: 5%;">Non Oper.</th>
+              <th style="width: 4.2%;" class="center">Action</th>
             </tr>
           </thead>
           <tbody id="cashBookCombinedRows"></tbody>
@@ -945,13 +954,12 @@
         if (pair.receipt) {
           const r = pair.receipt;
           const amt = Number(r.amount) || 0;
-          const displayCbrNo = r.linked_cbv ? `${r.serial_no} (of CBV ${r.linked_cbv})` : r.serial_no;
           const isGreen = pair.isStandaloneCbr;
           const centerClass = isGreen ? 'standalone-green-text center' : 'center';
           const numClass = isGreen ? 'standalone-green-text num' : 'num';
 
           tr.appendChild(createTableCell(r.date, centerClass));
-          tr.appendChild(createTableCell(displayCbrNo, centerClass, true));
+          tr.appendChild(createCbrNoCell(r.serial_no, r.linked_cbv, centerClass));
           tr.appendChild(createTableCell(r.account_code, centerClass));
           tr.appendChild(createParticularsCell(r.particulars, r.description, isGreen ? 'standalone-green-text' : ''));
           tr.appendChild(createTableCell(r.category === 'Cash' ? amt.toFixed(2) : '-', numClass));
@@ -1006,13 +1014,33 @@
       return td;
     }
 
+    function createCbrNoCell(serialNo, linkedCbv, className) {
+      const td = document.createElement('td');
+      if (className) td.className = className;
+      const strong = document.createElement('strong');
+      strong.textContent = serialNo;
+      td.appendChild(strong);
+      if (linkedCbv) {
+        const sub = document.createElement('span');
+        sub.className = 'desc-subtext';
+        sub.textContent = `(of CBV ${linkedCbv})`;
+        td.appendChild(sub);
+      }
+      return td;
+    }
+
     function createParticularsCell(particulars, description, className) {
       const td = document.createElement('td');
       if (className) td.className = className;
-      td.appendChild(document.createTextNode(particulars || ''));
+      const p = particulars || '';
+      td.title = description ? `${p}\n${description}` : p;   // full content on mouse hover
+      const main = document.createElement('div');
+      main.className = description ? 'pc-line' : 'pc-two';    // max two lines in total
+      main.textContent = p;
+      td.appendChild(main);
       if (description) {
         const descSpan = document.createElement('span');
-        descSpan.className = 'desc-subtext';
+        descSpan.className = 'desc-subtext pc-line';
         if (className && className.includes('standalone-green-text')) descSpan.style.color = '#047857';
         descSpan.textContent = description;
         td.appendChild(descSpan);
