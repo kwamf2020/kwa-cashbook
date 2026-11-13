@@ -494,7 +494,7 @@
       <div class="filter-controls-left">
         <label for="cbSearchInput">Search Transactions</label>
         <div class="search-wrap">
-          <input type="text" id="cbSearchInput" placeholder="🔍 Search No, Code, Particulars, Description, Amount..." onkeyup="filterCashBookRows()">
+          <input type="text" id="cbSearchInput" placeholder="🔍 Search No, Code, Party, Description, Amount..." onkeyup="filterCashBookRows()">
         </div>
       </div>
 
@@ -1065,7 +1065,7 @@
 
           tr.appendChild(createTableCell(r.date, centerClass));
           tr.appendChild(createCbrNoCell(r.serial_no, r.linked_cbv, centerClass));
-          tr.appendChild(createParticularsCell(r.particulars, r.description, isGreen ? 'standalone-green-text' : ''));
+          tr.appendChild(createNarrationCell(buildReceiptNarration(r), isGreen ? 'standalone-green-text' : ''));
           tr.appendChild(createTableCell(r.account_code, centerClass));
           tr.appendChild(createTableCell(r.category === 'Cash' ? amt.toFixed(2) : '', numClass));
           tr.appendChild(createTableCell(r.category === 'Non Operative' ? amt.toFixed(2) : '', numClass));
@@ -1085,7 +1085,7 @@
           const amt = Number(p.amount) || 0;
           tr.appendChild(createTableCell(p.date, 'center'));
           tr.appendChild(createTableCell(p.serial_no, 'center', true));
-          tr.appendChild(createParticularsCell(p.particulars, p.description, ''));
+          tr.appendChild(createNarrationCell(buildPaymentNarration(p), ''));
           tr.appendChild(createTableCell(p.account_code, 'center'));
           tr.appendChild(createTableCell(p.cheque_no || '', 'center'));
           tr.appendChild(createTableCell(p.category === 'Cash' ? amt.toFixed(2) : '', 'num'));
@@ -1136,22 +1136,34 @@
       return td;
     }
 
-    function createParticularsCell(particulars, description, className) {
+    // Display narration (the <particulars> head text is intentionally not shown in the table)
+    function buildReceiptNarration(r) {
+      if (r.linked_cbv) return `Auto-paired with CBV #${String(r.linked_cbv).trim()}.`;
+      const party = (r.party_name || '').trim();
+      const desc = (r.description || '').trim();
+      let text = 'Received';
+      if (party) text += ` from ${party}`;
+      if (desc) text += ` towards ${desc}`;
+      return text;
+    }
+
+    function buildPaymentNarration(p) {
+      const party = (p.party_name || '').trim();
+      const desc = (p.description || '').trim();
+      let text = 'Paid';
+      if (party) text += ` to ${party}`;
+      if (desc) text += ` towards ${desc}`;
+      return text;
+    }
+
+    function createNarrationCell(text, className) {
       const td = document.createElement('td');
       if (className) td.className = className;
-      const p = particulars || '';
-      td.title = description ? `${p}\n${description}` : p;   // full content on mouse hover
+      td.title = text;                       // full text on mouse hover
       const main = document.createElement('div');
-      main.className = description ? 'pc-line' : 'pc-two';    // max two lines in total
-      main.textContent = p;
+      main.className = 'pc-two';             // max two lines
+      main.textContent = text;
       td.appendChild(main);
-      if (description) {
-        const descSpan = document.createElement('span');
-        descSpan.className = 'desc-subtext pc-line';
-        if (className && className.includes('standalone-green-text')) descSpan.style.color = '#047857';
-        descSpan.textContent = description;
-        td.appendChild(descSpan);
-      }
       return td;
     }
 
