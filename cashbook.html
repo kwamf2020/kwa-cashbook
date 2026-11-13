@@ -949,21 +949,37 @@
           else standalone.push(t);
         }
       });
-      const pairs = [];
-      Object.keys(groups).sort(cmp).forEach(key => {
+      // One block per CBV (payment lines + connected CBR lines aligned row by row)
+      const blocks = Object.keys(groups).sort(cmp).map(key => {
         const g = groups[key];
-        g.receipts.sort((a, b) => cmp(a.serial_no, b.serial_no));
+        g.receipts.sort((x, y) => cmp(x.serial_no, y.serial_no));
         const rows = Math.max(g.payments.length, g.receipts.length);
+        const list = [];
         for (let i = 0; i < rows; i++) {
-          pairs.push({
+          list.push({
             receipt: g.receipts[i] || null, payment: g.payments[i] || null,
             isMatchedPair: g.receipts.length > 0 && g.payments.length > 0, pairId: null,
             isStandaloneCbr: false, groupStart: i === 0
           });
         }
+        return { rows: list, minCbr: g.receipts.length ? num(g.receipts[0].serial_no) : Infinity };
       });
-      standalone.sort((a, b) => cmp(a.serial_no, b.serial_no));
-      standalone.forEach(r => pairs.push({ receipt: r, payment: null, isMatchedPair: false, pairId: null, isStandaloneCbr: true, groupStart: false }));
+
+      // Standalone CBRs keep overall CBR number order: each goes just before the first CBV block
+      // whose connected CBRs have a higher number; otherwise it goes after all blocks.
+      standalone.sort((x, y) => cmp(x.serial_no, y.serial_no));
+      const out = blocks.map(blk => ({ before: [], blk }));
+      const tail = [];
+      standalone.forEach(r => {
+        const n = num(r.serial_no);
+        const slot = out.find(o => o.blk.minCbr > n && o.blk.minCbr !== Infinity);
+        const row = { receipt: r, payment: null, isMatchedPair: false, pairId: null, isStandaloneCbr: true, groupStart: true };
+        if (slot) slot.before.push(row); else tail.push(row);
+      });
+
+      const pairs = [];
+      out.forEach(o => { o.before.forEach(p => pairs.push(p)); o.blk.rows.forEach(p => pairs.push(p)); });
+      tail.forEach(p => pairs.push(p));
       return pairs;
     }
 
