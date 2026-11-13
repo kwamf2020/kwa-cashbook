@@ -462,6 +462,12 @@
           </div>
         </div>
 
+        <!-- CONNECTED CBRs, shown only while editing a CBV that has connected receipts -->
+        <div id="editLinkedSection" class="paired-section" style="display: none;">
+          <h4 class="paired-title" id="editLinkedTitle">Connected Receipts (CBR)</h4>
+          <div id="editLinkedBlocks"></div>
+        </div>
+
         <div class="live-totals" aria-live="polite">
           <div class="total-card rec">
             <div class="total-title">Receipts Side (CBR) Total<span class="total-count" id="recTotalCount">0 items</span></div>
@@ -562,6 +568,7 @@
     let currentActiveMonth = '';
     let allOfficeTransactions = [];
     let currentOfficeName = '';
+    let editCtx = null;   // what is being edited: the original rows of the CBV/CBR(s), used when saving
 
     window.onload = async function() {
       showLoading('Authenticating session...');
@@ -782,7 +789,15 @@
     }
 
     function onDateChange() {
-      if (document.getElementById('editingMode').value !== 'true') autoFetchSerialNo();
+      if (document.getElementById('editingMode').value !== 'true') { autoFetchSerialNo(); return; }
+      // Editing a simultaneous voucher: connected CBRs that were on the same date follow the CBV date
+      if (editCtx && editCtx.linked.length) {
+        const newDate = document.getElementById('date').value.trim();
+        document.querySelectorAll('#editLinkedBlocks .x-date').forEach(inp => {
+          if (inp.value.trim() === editCtx.lastPrimaryDate) inp.value = newDate;
+        });
+        editCtx.lastPrimaryDate = newDate;
+      }
     }
 
     function formatMonthYear(dateStr) {
@@ -868,6 +883,32 @@
       let pairedSerial = '';
       let pairedPayee = '';
 
+      // Editing a CBV together with its connected CBR(s): read every CBR block
+      const linkedEdits = [];
+      if (isEdit && editCtx && editCtx.linked.length) {
+        for (const blk of document.querySelectorAll('#editLinkedBlocks .x-cbr-block')) {
+          const serial = blk.dataset.serial;
+          const bDate = blk.querySelector('.x-date').value.trim();
+          const bMonth = formatMonthYear(bDate);
+          if (bMonth.toLowerCase() !== currentActiveMonth.toLowerCase()) {
+            Swal.fire('Restricted Date', `CBR #${serial}: entries can only be recorded for the active month (${currentActiveMonth}).`, 'error');
+            return;
+          }
+          const bItems = [];
+          blk.querySelectorAll('.x-items tr').forEach(tr => {
+            const code = tr.querySelector('.x-item-code').value;
+            const particulars = tr.querySelector('.x-item-particulars').value.trim();
+            const amount = tr.querySelector('.x-item-amount').value;
+            if (code && particulars && amount) bItems.push({ accountCode: code, particulars, amount: parseFloat(amount) });
+          });
+          if (bItems.length === 0) {
+            Swal.fire('Warning', `Please complete at least one line item for connected CBR #${serial}.`, 'warning');
+            return;
+          }
+          linkedEdits.push({ serial, date: bDate, payee: blk.querySelector('.x-payee').value.trim(), items: bItems });
+        }
+      }
+
       if (entryMode === 'Combined' && !isEdit) {
         pairedSerial = document.getElementById('pairedSerialNo').value.trim();
         pairedPayee = document.getElementById('pairedPayee').value.trim();
@@ -885,7 +926,9 @@
 
       const confirmTitle = isEdit ? 'Confirm Update' : (entryMode === 'Combined' ? 'Confirm Voucher Pair' : 'Confirm Entry');
       const confirmText = isEdit 
-        ? `Update ${primaryType} Voucher No. #${primarySerial} dated ${dateVal}?`
+        ? (linkedEdits.length
+            ? `Update ${primaryType} Voucher No. #${primarySerial} dated ${dateVal} together with connected CBR #${linkedEdits.map(l => l.serial).join(', #')}?`
+            : `Update ${primaryType} Voucher No. #${primarySerial} dated ${dateVal}?`)
         : (entryMode === 'Combined' 
           ? `Add Voucher Pair dated ${dateVal}?\n• Payment (CBV): #${primarySerial}\n• Connected Receipt (CBR): #${pairedSerial}`
           : `Add ${primaryType} Voucher No. #${primarySerial} dated ${dateVal}?`);
@@ -898,10 +941,79 @@
 
       showLoading('Saving transaction...');
       try {
+        // ---- Editing a CBV together with its connected CBR(s) ----
+        if (isEdit && linkedEdits.length) {
+          const sig = o => JSON.stringify({ ...o, items: o.items.map(i => `${String(i.accountCode).trim()}|${String(i.particulars).trim()}|${(Number(i.amount) || 0).toFixed(2)}`).sort() });
+          const origItems = rows => rows.map(r => ({ accountCode: r.account_code, particulars: r.particulars, amount: r.amount }));
+          const delRows = async rows => {
+            const keys = new Set(rows.map(r => `${r.type}||${r.serial_no}||${r.date}`));
+            for (const k of keys) {
+              const [t, sn, dt] = k.split('||');
+              const { error } = await supabaseClient.from('transactions').delete()
+                .eq('office_id', currentOfficeId).eq('type', t).eq('serial_no', sn).eq('date', dt);
+              if (error) throw error;
+            }
+          };
+          const o = editCtx.primary, oh = o.rows[0];
+          const catChanged = category !== (oh.category || '') || bankNickname !== (oh.bank_nickname || '');
+          const toInsert = [];
+          let ts = Date.now();
+
+          // CBV: rewritten only if something in it changed (keeps BRS status of untouched vouchers)
+          const newPrim = { date: dateVal, payee, description, chequeNo, gstAmount: gstAmount || 0, category, bank: bankNickname, items };
+          const oldPrim = { date: oh.date, payee: oh.party_name || '', description: oh.description || '', chequeNo: oh.cheque_no || '', gstAmount: Number(oh.gst_amount) || 0, category: oh.category || '', bank: oh.bank_nickname || '', items: origItems(o.rows) };
+          if (sig(newPrim) !== sig(oldPrim)) {
+            await delRows(o.rows);
+            items.forEach((item, idx) => toInsert.push({
+              txn_id: `TXN-${ts}-${idx + 1}`, office_id: currentOfficeId, date: dateVal, month_year: txnMonthYear,
+              type: 'Payment', serial_no: primarySerial, linked_cbv: null,
+              account_code: item.accountCode, particulars: item.particulars, party_name: payee, description: description,
+              bank_nickname: bankNickname, category: category, receipt_subtype: null,
+              cheque_no: chequeNo, amount: item.amount, brs_status: 'Pending', clearance_date: '', gst_amount: gstAmount
+            }));
+            ts += 100;
+          }
+
+          // Connected CBRs: each rewritten only if changed. A changed CBV account/bank is carried to them (as when the pair was created)
+          for (const le of linkedEdits) {
+            const orig = editCtx.linked.find(x => String(x.serial) === String(le.serial));
+            const rh = orig.rows[0];
+            const nCat = catChanged ? category : (rh.category || '');
+            const nBank = catChanged ? bankNickname : (rh.bank_nickname || '');
+            const newL = { date: le.date, payee: le.payee, category: nCat, bank: nBank, items: le.items };
+            const oldL = { date: rh.date, payee: rh.party_name || '', category: rh.category || '', bank: rh.bank_nickname || '', items: origItems(orig.rows) };
+            if (sig(newL) === sig(oldL)) continue;
+            await delRows(orig.rows);
+            le.items.forEach((it, idx) => toInsert.push({
+              txn_id: `TXN-${ts}-${idx + 1}`, office_id: currentOfficeId, date: le.date, month_year: formatMonthYear(le.date),
+              type: 'Receipt', serial_no: rh.serial_no, linked_cbv: rh.linked_cbv,
+              account_code: it.accountCode, particulars: it.particulars, party_name: le.payee, description: rh.description || '',
+              bank_nickname: nBank, category: nCat, receipt_subtype: rh.receipt_subtype || 'Recovery',
+              cheque_no: rh.cheque_no || '', amount: it.amount, brs_status: 'Pending', clearance_date: '', gst_amount: 0
+            }));
+            ts += 100;
+          }
+
+          if (toInsert.length) {
+            const { error: insErr2 } = await supabaseClient.from('transactions').insert(toInsert);
+            if (insErr2) throw insErr2;
+          }
+          Swal.fire({ title: 'Success!', text: 'Voucher and connected receipts updated!', icon: 'success', timer: 1500, showConfirmButton: false });
+          resetForm();
+          await loadCashBookData();
+          return;
+        }
+
         if (isEdit) {
-          const { error: delErr } = await supabaseClient.from('transactions').delete()
-            .eq('office_id', currentOfficeId).eq('type', primaryType).eq('serial_no', primarySerial).eq('date', dateVal);
-          if (delErr) throw delErr;
+          // delete the rows as they were loaded for editing (not by the form's current date, which may have been changed)
+          const origRows = (editCtx && editCtx.primary.rows.length) ? editCtx.primary.rows : [{ type: primaryType, serial_no: primarySerial, date: dateVal }];
+          const keys = new Set(origRows.map(r => `${r.type}||${r.serial_no}||${r.date}`));
+          for (const k of keys) {
+            const [t, sn, dt] = k.split('||');
+            const { error: delErr } = await supabaseClient.from('transactions').delete()
+              .eq('office_id', currentOfficeId).eq('type', t).eq('serial_no', sn).eq('date', dt);
+            if (delErr) throw delErr;
+          }
         }
 
         const baseTs = Date.now();
@@ -1161,19 +1273,114 @@
       return td;
     }
 
+    // Finds everything that belongs together with the clicked voucher:
+    //  - CBV clicked            -> its line items + all CBRs linked to it
+    //  - CBR clicked, linked to an existing CBV -> that CBV + all CBRs linked to it
+    //  - otherwise              -> only the line items having the same voucher no.
+    function getVoucherGroup(serialNo, type) {
+      const same = (a, b) => String(a).trim() === String(b).trim();
+      const num = s => parseInt(String(s).replace(/\D/g, ''), 10) || 0;
+      let cbvKey = null;
+      if (type === 'Payment') cbvKey = String(serialNo).trim();
+      else {
+        const clicked = allOfficeTransactions.find(t => t.type === 'Receipt' && same(t.serial_no, serialNo));
+        if (clicked && clicked.linked_cbv) {
+          const lk = String(clicked.linked_cbv).trim();
+          if (allOfficeTransactions.some(t => t.type === 'Payment' && same(t.serial_no, lk))) cbvKey = lk;
+        }
+      }
+      if (cbvKey !== null) {
+        const payments = allOfficeTransactions.filter(t => t.type === 'Payment' && same(t.serial_no, cbvKey));
+        const receipts = allOfficeTransactions.filter(t => t.type === 'Receipt' && t.linked_cbv && same(t.linked_cbv, cbvKey));
+        if (receipts.length > 0) {
+          const bySerial = {};
+          receipts.forEach(r => { (bySerial[String(r.serial_no).trim()] = bySerial[String(r.serial_no).trim()] || []).push(r); });
+          const linked = Object.keys(bySerial).sort((a, b) => num(a) - num(b))
+            .map(sn => ({ serial: sn, rows: bySerial[sn] }));
+          return { isGroup: true, cbvKey, payments, linked };
+        }
+      }
+      return { isGroup: false, rows: allOfficeTransactions.filter(t => t.type === type && same(t.serial_no, serialNo)) };
+    }
+
+    function buildEditCbrBlock(cbr) {
+      const rh = cbr.rows[0];
+      const wrap = document.createElement('div');
+      wrap.className = 'x-cbr-block';
+      wrap.dataset.serial = cbr.serial;
+      wrap.style.marginBottom = '18px';
+      wrap.innerHTML = `
+        <div class="grid-form">
+          <div class="form-group"><label>Connected CBR No</label><input type="text" class="x-serial" value="${escapeHtml(cbr.serial)}" readonly></div>
+          <div class="form-group"><label>CBR Date *</label><input type="text" class="x-date" value="${escapeHtml(rh.date)}" placeholder="dd-mm-yyyy" inputmode="numeric" autocomplete="off"></div>
+          <div class="form-group"><label>Received From / Particulars</label><input type="text" class="x-payee" value="${escapeHtml(rh.party_name || '')}" placeholder="e.g. Source of receipt"></div>
+        </div>
+        <div class="items-container">
+          <h4>CBR #${escapeHtml(cbr.serial)} Line Items</h4>
+          <div class="table-scroll">
+            <table class="items-table">
+              <thead><tr>
+                <th style="width: 28%;">Account Code *</th><th>Particulars / Head Description *</th>
+                <th style="width: 18%;">Amount (₹) *</th><th style="width: 60px;" class="center">Remove</th>
+              </tr></thead>
+              <tbody class="x-items"></tbody>
+            </table>
+          </div>
+          <button type="button" class="btn btn-add" onclick="addEditCbrItemRow(this.closest('.x-cbr-block'))">+ Add Item Row</button>
+        </div>`;
+      cbr.rows.forEach(r => addEditCbrItemRow(wrap, r.account_code, r.particulars, r.amount));
+      return wrap;
+    }
+
+    function addEditCbrItemRow(blockEl, code = '', particulars = '', amount = '') {
+      let codeOptions = '<option value="">Select Code</option>';
+      masterAccountCodes.forEach(ac => {
+        const sel = String(ac.account_code) === String(code) ? 'selected' : '';
+        codeOptions += `<option value="${escapeHtml(ac.account_code)}" ${sel}>${escapeHtml(ac.account_code)} - ${escapeHtml(ac.particulars)}</option>`;
+      });
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><select class="x-item-code" onchange="autoFillEditCbrParticulars(this)">${codeOptions}</select></td>
+        <td><input type="text" class="x-item-particulars" value="${escapeHtml(particulars)}" placeholder="Particulars description"></td>
+        <td><input type="number" step="0.01" class="x-item-amount" value="${amount}" placeholder="0.00"></td>
+        <td style="text-align:center;"><button type="button" class="btn btn-danger" onclick="removeEditCbrItemRow(this)">✕</button></td>`;
+      blockEl.querySelector('.x-items').appendChild(tr);
+    }
+
+    function autoFillEditCbrParticulars(selectEl) {
+      const tr = selectEl.closest('tr');
+      const match = masterAccountCodes.find(ac => String(ac.account_code) === String(selectEl.value));
+      if (match) tr.querySelector('.x-item-particulars').value = match.particulars;
+    }
+
+    function removeEditCbrItemRow(btn) {
+      const tbody = btn.closest('tbody');
+      if (tbody.children.length > 1) btn.closest('tr').remove();
+      else Swal.fire('Warning', 'At least one line item is required for each connected CBR.', 'warning');
+    }
+
     async function loadVoucherForEdit(serialNo, type, date) {
+      const grp = getVoucherGroup(serialNo, type);
+      const voucherItems = grp.isGroup ? grp.payments : grp.rows;
+      if (voucherItems.length === 0) { Swal.fire('Error', 'Voucher data not found.', 'error'); return; }
+
+      const askText = grp.isGroup
+        ? `Edit CBV #${grp.cbvKey} together with its connected CBR #${grp.linked.map(l => l.serial).join(', #')}? Both sides will be loaded at the top.`
+        : `Edit ${type} Voucher No. #${serialNo} dated ${date}?`;
       const result = await Swal.fire({
-        title: 'Load Voucher for Edit', text: `Edit ${type} Voucher No. #${serialNo} dated ${date}?`,
+        title: 'Load Voucher for Edit', text: askText,
         icon: 'question', showCancelButton: true, confirmButtonColor: '#f59e0b', cancelButtonColor: '#64748b', confirmButtonText: 'Yes, Edit'
       });
       if (!result.isConfirmed) return;
 
-      const voucherItems = allOfficeTransactions.filter(t => t.type === type && String(t.serial_no) === String(serialNo) && t.date === date);
-      if (voucherItems.length === 0) { Swal.fire('Error', 'Voucher data not found.', 'error'); return; }
-
       const head = voucherItems[0];
       resetForm();
       document.getElementById('editingMode').value = 'true';
+      editCtx = {
+        primary: { rows: voucherItems.map(r => ({ ...r })) },
+        linked: grp.isGroup ? grp.linked.map(l => ({ serial: l.serial, rows: l.rows.map(r => ({ ...r })) })) : [],
+        lastPrimaryDate: head.date
+      };
       const entryMode = document.getElementById('entryMode');
       entryMode.value = 'Standalone'; entryMode.disabled = true;
       handleEntryModeChange();
@@ -1203,12 +1410,73 @@
       tbody.innerHTML = '';
       voucherItems.forEach(item => addItemRow(item.account_code, item.particulars, item.amount));
 
-      document.getElementById('formTitle').innerText = `Editing ${head.type} #${head.serial_no} (${head.date})`;
+      // Connected CBRs (simultaneous voucher): show the receipt side right below the payment side, also at the top
+      const linkedSection = document.getElementById('editLinkedSection');
+      const blocksEl = document.getElementById('editLinkedBlocks');
+      blocksEl.innerHTML = '';
+      if (grp.isGroup) {
+        grp.linked.forEach(l => blocksEl.appendChild(buildEditCbrBlock(l)));
+        document.getElementById('editLinkedTitle').innerText = `Connected Receipts (CBR #${grp.linked.map(l => l.serial).join(', #')}) of CBV #${grp.cbvKey}`;
+        linkedSection.style.display = 'block';
+        document.getElementById('formTitle').innerText = `Editing Simultaneous Voucher: CBV #${grp.cbvKey} + CBR #${grp.linked.map(l => l.serial).join(', #')} (${head.date})`;
+      } else {
+        linkedSection.style.display = 'none';
+        document.getElementById('formTitle').innerText = `Editing ${head.type} #${head.serial_no} (${head.date})`;
+      }
       document.getElementById('saveBtn').innerText = 'Update Entry';
+      if (window.updateLiveTotals) window.updateLiveTotals();
       scrollPageToTop();
     }
 
     async function deleteVoucher(serialNo, type, date) {
+      const fmt = n => (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const sum = rows => rows.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+      const same = (a, b) => String(a).trim() === String(b).trim();
+
+      // Deleting a payment voucher also removes its connected receipt vouchers (CBRs)
+      if (type === 'Payment') {
+        const payRows = allOfficeTransactions.filter(t => t.type === 'Payment' && same(t.serial_no, serialNo));
+        const cbrRows = allOfficeTransactions.filter(t => t.type === 'Receipt' && t.linked_cbv && same(t.linked_cbv, serialNo));
+        if (payRows.length === 0) { Swal.fire('Error', 'Voucher data not found.', 'error'); return; }
+
+        const cbrSerials = [...new Set(cbrRows.map(r => String(r.serial_no).trim()))];
+        let html = `<div style="text-align:left; font-size:14px; line-height:1.6;">
+          <div>• <b>CBV #${escapeHtml(String(serialNo).trim())}</b> &ndash; ${payRows.length} line item${payRows.length === 1 ? '' : 's'}, ₹ ${fmt(sum(payRows))}</div>`;
+        cbrSerials.forEach(sn => {
+          const rs = cbrRows.filter(r => String(r.serial_no).trim() === sn);
+          html += `<div>• Connected <b>CBR #${escapeHtml(sn)}</b> &ndash; ${rs.length} line item${rs.length === 1 ? '' : 's'}, ₹ ${fmt(sum(rs))}</div>`;
+        });
+        html += `<div style="margin-top:10px; color:#b91c1c;">${payRows.length + cbrRows.length} line item${payRows.length + cbrRows.length === 1 ? '' : 's'} in total will be permanently deleted.</div></div>`;
+
+        const result = await Swal.fire({
+          title: cbrSerials.length ? 'Delete CBV and connected CBR(s)?' : 'Delete Voucher',
+          html, icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#64748b', confirmButtonText: 'Yes, Delete'
+        });
+        if (!result.isConfirmed) return;
+
+        showLoading('Deleting transaction...');
+        try {
+          const month = payRows[0].month_year;
+          const paySerials = [...new Set(payRows.map(r => r.serial_no))];
+          const { error: pErr } = await supabaseClient.from('transactions').delete()
+            .eq('office_id', currentOfficeId).eq('month_year', month).eq('type', 'Payment').in('serial_no', paySerials);
+          if (pErr) throw pErr;
+          if (cbrRows.length) {
+            const links = [...new Set(cbrRows.map(r => r.linked_cbv))];
+            const { error: rErr } = await supabaseClient.from('transactions').delete()
+              .eq('office_id', currentOfficeId).eq('month_year', cbrRows[0].month_year).eq('type', 'Receipt').in('linked_cbv', links);
+            if (rErr) throw rErr;
+          }
+          Swal.fire({ title: 'Deleted!', text: cbrSerials.length ? `CBV #${String(serialNo).trim()} and connected CBR #${cbrSerials.join(', #')} deleted.` : `Voucher ${type} #${serialNo} deleted.`, icon: 'success', timer: 1800, showConfirmButton: false });
+          if (document.getElementById('editingMode').value === 'true') resetForm();
+          await loadCashBookData();
+        } catch (err) {
+          Swal.close();
+          Swal.fire('Error', 'Delete Error: ' + err.message, 'error');
+        }
+        return;
+      }
+
       const result = await Swal.fire({
         title: 'Delete Voucher', text: `Permanently delete ${type} Voucher No. #${serialNo} dated ${date}?`,
         icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#64748b', confirmButtonText: 'Yes, Delete'
@@ -1231,6 +1499,9 @@
     function resetForm() {
       document.getElementById('txnForm').reset();
       document.getElementById('editingMode').value = 'false';
+      editCtx = null;
+      document.getElementById('editLinkedBlocks').innerHTML = '';
+      document.getElementById('editLinkedSection').style.display = 'none';
       document.getElementById('entryMode').disabled = false;
       document.getElementById('type').disabled = false;
       document.getElementById('serialNo').readOnly = false;
@@ -1533,15 +1804,15 @@
         const type = document.getElementById('type').value;
         const combined = document.getElementById('entryMode').value === 'Combined' && document.getElementById('editingMode').value !== 'true';
         const main = sumRows('#itemsRows .item-amount');
-        const paired = combined ? sumRows('#pairedItemsRows .paired-item-amount') : { total: 0, count: 0 };
+        const paired = combined ? sumRows('#pairedItemsRows .paired-item-amount') : sumRows('#editLinkedBlocks .x-item-amount');
         const none = { total: 0, count: 0 };
         if (type === 'Payment') { show('payTotalValue', 'payTotalCount', main); show('recTotalValue', 'recTotalCount', paired); }
         else { show('recTotalValue', 'recTotalCount', main); show('payTotalValue', 'payTotalCount', none); }
       };
-      ['itemsRows', 'pairedItemsRows'].forEach(id => {
+      ['itemsRows', 'pairedItemsRows', 'editLinkedBlocks'].forEach(id => {
         const el = document.getElementById(id);
         el.addEventListener('input', window.updateLiveTotals);
-        new MutationObserver(window.updateLiveTotals).observe(el, { childList: true });
+        new MutationObserver(window.updateLiveTotals).observe(el, { childList: true, subtree: id === 'editLinkedBlocks' });
       });
       new MutationObserver(window.updateLiveTotals).observe(document.getElementById('serialNoLabel'), { childList: true, characterData: true, subtree: true });
       ['type', 'entryMode'].forEach(id => document.getElementById(id).addEventListener('change', window.updateLiveTotals));
