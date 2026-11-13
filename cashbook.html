@@ -251,6 +251,8 @@
     .blank-cell { background-color: transparent !important; }
     .desc-subtext { display: block; font-size: 11.5px; color: var(--text-muted); font-style: italic; margin-top: 2px; }
     .standalone-green-text { color: var(--green-credit) !important; font-weight: 600; }
+    .standalone-green-text .desc-subtext { color: #047857 !important; }
+    table.cb-table tbody tr.group-start td { border-top: 2px solid #0f172a; }
 
     /* ---------- SweetAlert polish ---------- */
     .swal2-popup { border-radius: 16px !important; font-family: inherit !important; }
@@ -893,7 +895,7 @@
         if (error) throw error;
         allOfficeTransactions = data || [];
         autoFetchSerialNo();
-        renderCashBookTable(buildDoubleSidePairs(allOfficeTransactions));
+        renderCashBookTable(buildDisplayPairs(allOfficeTransactions));
         Swal.close();
       } catch (err) {
         Swal.close();
@@ -932,6 +934,39 @@
       return pairs;
     }
 
+    // Display order: CBVs in serial order, each followed by its connected CBRs (also in serial order) aligned beside it.
+    // Standalone CBRs (not linked to any CBV) come after, in CBR order.
+    function buildDisplayPairs(txns) {
+      const num = s => parseInt(String(s).replace(/\D/g, ''), 10) || 0;
+      const cmp = (a, b) => (num(a) - num(b)) || String(a).localeCompare(String(b), undefined, { numeric: true });
+      const groups = {};
+      const standalone = [];
+      const grp = key => (groups[key] = groups[key] || { payments: [], receipts: [] });
+      txns.forEach(t => {
+        if (t.type === 'Payment') grp(String(t.serial_no).trim()).payments.push(t);
+        else if (t.type === 'Receipt') {
+          if (t.linked_cbv) grp(String(t.linked_cbv).trim()).receipts.push(t);
+          else standalone.push(t);
+        }
+      });
+      const pairs = [];
+      Object.keys(groups).sort(cmp).forEach(key => {
+        const g = groups[key];
+        g.receipts.sort((a, b) => cmp(a.serial_no, b.serial_no));
+        const rows = Math.max(g.payments.length, g.receipts.length);
+        for (let i = 0; i < rows; i++) {
+          pairs.push({
+            receipt: g.receipts[i] || null, payment: g.payments[i] || null,
+            isMatchedPair: g.receipts.length > 0 && g.payments.length > 0, pairId: null,
+            isStandaloneCbr: false, groupStart: i === 0
+          });
+        }
+      });
+      standalone.sort((a, b) => cmp(a.serial_no, b.serial_no));
+      standalone.forEach(r => pairs.push({ receipt: r, payment: null, isMatchedPair: false, pairId: null, isStandaloneCbr: true, groupStart: false }));
+      return pairs;
+    }
+
     function renderCashBookTable(pairs) {
       const combinedTbody = document.getElementById('cashBookCombinedRows');
       combinedTbody.innerHTML = '';
@@ -945,6 +980,7 @@
       const cbvColors = ['#e8f1ff', '#fff4dc', '#e6f8ec', '#fdeaf3', '#efeafd', '#e3f7f7'];
       pairs.forEach(pair => {
         const tr = document.createElement('tr');
+        if (pair.groupStart) tr.classList.add('group-start');
         const cbvKey = pair.payment ? pair.payment.serial_no : ((pair.receipt && pair.receipt.linked_cbv) ? pair.receipt.linked_cbv : null);
         if (cbvKey !== null && cbvKey !== undefined && cbvKey !== '') {
           const n = parseInt(String(cbvKey).replace(/\D/g, ''), 10) || 0;
@@ -954,7 +990,7 @@
         if (pair.receipt) {
           const r = pair.receipt;
           const amt = Number(r.amount) || 0;
-          const isGreen = pair.isStandaloneCbr;
+          const isGreen = pair.isStandaloneCbr || String(r.account_code).trim() === '9132';
           const centerClass = isGreen ? 'standalone-green-text center' : 'center';
           const numClass = isGreen ? 'standalone-green-text num' : 'num';
 
