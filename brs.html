@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KWA - Bank Reconciliation Statement (Form CB-25 / RA-25 & Lists A–E)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --kwa-primary: #003366;
+      --kwa-secondary: #004d99;
+      --bg-page: #f1f5f9;
+      --card-bg: #ffffff;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --border-light: #cbd5e1;
+      --green-credit: #059669;
+      --red-debit: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body { 
+      display: none; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      margin: 0; padding: 20px; background-color: var(--bg-page); color: var(--text-dark);
+      line-height: 1.45;
+    }
+    .container { max-width: 1280px; margin: 0 auto; }
+    
+    .app-banner { 
+      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
+      color: #ffffff; padding: 18px 24px; border-radius: 10px; margin-bottom: 20px; 
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; 
+      box-shadow: 0 4px 12px rgba(0, 51, 102, 0.15); 
+    }
+    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; }
+    .btn-nav-home { 
+      background-color: rgba(255, 255, 255, 0.15); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 8px 16px; font-size: 13px; border-radius: 6px; text-decoration: none; font-weight: 600; 
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); }
+
+    .controls-bar {
+      background: var(--card-bg); padding: 16px 20px; border-radius: 10px; border: 1px solid var(--border-light);
+      margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+    }
+    .controls-left, .controls-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .controls-left select, .controls-left input {
+      padding: 8px 12px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 13px; background: #fff;
+    }
+    .btn { background-color: var(--kwa-primary); color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { background-color: #002244; }
+    .btn-pdf { background-color: #7c3aed; }
+    .btn-pdf:hover { background-color: #6d28d9; }
+    .btn-save { background-color: #059669; }
+    .btn-save:hover { background-color: #047857; }
+    .btn-add-row { background-color: #0284c7; padding: 4px 10px; font-size: 11.5px; }
+    .btn-add-row:hover { background-color: #0369a1; }
+    .btn-del-row { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: 2px 7px; font-size: 11px; cursor: pointer; font-weight: 700; }
+    .btn-del-row:hover { background: #fecaca; }
+
+    /* Interactive Entry & Preview Card */
+    .report-card {
+      background: var(--card-bg); padding: 32px; border-radius: 10px; border: 1px solid var(--border-light);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 24px;
+    }
+
+    .form-header { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; color: #475569; margin-bottom: 10px; }
+    .org-title { text-align: center; font-size: 18px; font-weight: 700; color: var(--kwa-primary); letter-spacing: 0.5px; }
+    .div-title { text-align: center; font-size: 14px; font-weight: 600; margin-top: 2px; }
+    .stmt-heading { text-align: center; font-size: 14px; font-weight: 700; text-transform: uppercase; margin-top: 10px; letter-spacing: 0.4px; }
+    
+    .meta-box {
+      display: flex; justify-content: space-between; align-items: flex-start; margin: 16px 0; font-size: 13px; font-weight: 600; flex-wrap: wrap; gap: 10px;
+      border-bottom: 2px solid #0f172a; padding-bottom: 10px;
+    }
+
+    table.brs-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px; }
+    table.brs-table th, table.brs-table td { border: 1px solid #64748b; padding: 9px 12px; }
+    table.brs-table th { background-color: #1e293b; color: #fff; text-align: center; font-size: 11.5px; text-transform: uppercase; }
+    table.brs-table td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', monospace; font-weight: 600; }
+    table.brs-table tr.total-row { background-color: #e2e8f0; font-weight: 700; font-size: 13.5px; }
+
+    /* Inline editable input for Passbook Balance, Interest & Bank Charges */
+    .inline-num-input {
+      width: 145px; text-align: right; padding: 4px 8px; border: 1px solid #94a3b8; border-radius: 4px;
+      font-family: 'Segoe UI Mono', monospace; font-weight: 700; font-size: 13px; background: #fffbeb;
+    }
+
+    /* Supporting Lists (Lists A, B, C, D, E) */
+    .lists-wrapper { margin-top: 30px; }
+    .list-block { margin-bottom: 26px; page-break-inside: avoid; }
+    .list-header-bar {
+      display: flex; justify-content: space-between; align-items: center; background: #f8fafc;
+      border: 1px solid #94a3b8; border-bottom: none; padding: 8px 12px;
+    }
+    .list-header-bar h3 { margin: 0; font-size: 13px; font-weight: 700; color: var(--kwa-primary); text-transform: uppercase; }
+    
+    table.sub-list-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.sub-list-table th, table.sub-list-table td { border: 1px solid #64748b; padding: 6px 8px; text-align: left; }
+    table.sub-list-table th { background-color: #334155; color: #fff; font-size: 11px; text-align: center; }
+    table.sub-list-table td input {
+      width: 100%; border: 1px solid transparent; padding: 3px 5px; font-size: 12px; background: transparent; font-family: inherit;
+    }
+    table.sub-list-table td input:focus { border-color: #0284c7; background: #f0f9ff; outline: none; }
+    table.sub-list-table td input.num-cell { text-align: right; font-family: 'Segoe UI Mono', monospace; font-weight: 600; }
+    table.sub-list-table tr.sub-total-row { background-color: #f1f5f9; font-weight: 700; }
+
+    .sig-section { display: flex; justify-content: space-between; margin-top: 48px; font-size: 13px; font-weight: 600; page-break-inside: avoid; }
+    .sig-box { text-align: center; width: 230px; border-top: 1px solid #0f172a; padding-top: 6px; }
+
+    .page-break { page-break-before: always; margin-top: 32px; border-top: 2px dashed #cbd5e1; padding-top: 24px; }
+
+    /* Print / PDF Styles */
+    @media print {
+      @page { size: A4 portrait; margin: 12mm; }
+      body { background: #fff; padding: 0; display: block !important; font-size: 11px; }
+      .container { max-width: 100%; }
+      .app-banner, .controls-bar, .no-print, .btn-add-row, .btn-del-row { display: none !important; }
+      .report-card { border: none; box-shadow: none; padding: 0; margin: 0; }
+      .inline-num-input { border: none; background: transparent; padding: 0; width: auto; }
+      table.sub-list-table td input { border: none; padding: 0; background: transparent; }
+      .page-break { border-top: none; margin-top: 0; padding-top: 0; }
+      table.brs-table th, table.sub-list-table th { background-color: #e2e8f0 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app-banner">
+      <div class="banner-left">
+        <h1 id="bannerOfficeTitle">KERALA WATER AUTHORITY</h1>
+        <div style="font-size: 13px; opacity: 0.9; margin-top: 4px;">Bank Reconciliation Statement (Form CB-25 / RA-25) & Schedules (Lists A–E)</div>
+      </div>
+      <div>
+        <a href="index.html" class="btn-nav-home">🏠 Home</a>
+      </div>
+    </div>
+
+    <!-- CONTROLS BAR -->
+    <div class="controls-bar">
+      <div class="controls-left">
+        <label for="bankSelect"><b>Bank Account:</b></label>
+        <select id="bankSelect" onchange="loadBRSData()">
+          <option value="">-- Select Bank --</option>
+        </select>
+
+        <label for="monthPicker"><b>Month:</b></label>
+        <input type="month" id="monthPicker" onchange="loadBRSData()">
+
+        <button class="btn" onclick="autoPullFromCashBook()">⚡ Auto-Fill from Cash Book</button>
+      </div>
+      <div class="controls-right">
+        <button class="btn btn-save" onclick="saveBRSState()">💾 Save BRS Data</button>
+        <button class="btn btn-pdf" onclick="window.print()">🖨️ Generate PDF (RA-25 + Lists A–E)</button>
+      </div>
+    </div>
+
+    <!-- PRINTABLE REPORT DOCUMENT -->
+    <div class="report-card" id="printableDocument">
+      <!-- PAGE 1: FORM CB-25 / RA-25 SUMMARY STATEMENT -->
+      <div class="form-header">
+        <div>FORM CB-25 (RA-25)<br>Refer Chapter III (E) Para 6</div>
+        <div style="text-align:right;">
+          Division: <span id="hdrDivision">PH DIVISION, THIRUVALLA</span><br>
+          Date: <span id="hdrAsOnDate">--/--/----</span>
+        </div>
+      </div>
+
+      <div class="org-title">KERALA WATER AUTHORITY</div>
+      <div class="stmt-heading">BANK RECONCILIATION STATEMENT AS ON <span id="displayDateRange">--/--/----</span></div>
+
+      <div class="meta-box">
+        <div>NAME OF BANK / TREASURY: <span id="displayBankName" style="color:var(--kwa-primary);">--</span></div>
+        <div>Account No: <span id="displayAccountNo">--</span></div>
+      </div>
+
+      <table class="brs-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Particulars</th>
+            <th class="num" style="width: 175px;">Amount Rs.</th>
+            <th class="num" style="width: 175px;">Amount Rs.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Balance as per Bank Statement / Passbook</strong> <span class="no-print" style="font-size:11px; color:#64748b;">(Enter Passbook Closing)</span></td>
+            <td class="num">
+              <input type="number" step="0.01" id="inputPassbookBal" class="inline-num-input" value="0.00" oninput="recalculateBRS()">
+            </td>
+            <td class="num"></td>
+          </tr>
+          <tr>
+            <td><strong>Add:</strong> Amount Deposited but not credited by Bank as per <strong>List A</strong></td>
+            <td class="num" id="cellSumA">0.00</td>
+            <td class="num"></td>
+          </tr>
+          <tr>
+            <td><strong>Add:</strong> Non Operative receipts not banked as per <strong>List B</strong></td>
+            <td class="num" id="cellSumB">0.00</td>
+            <td class="num"></td>
+          </tr>
+          <tr style="background:#f8fafc;">
+            <td style="text-align:right; font-weight:600;">Sub-Total (Passbook + List A + List B)</td>
+            <td class="num" style="font-weight:700;" id="cellSubTotalLeft">0.00</td>
+            <td class="num"></td>
+          </tr>
+          <tr>
+            <td><strong>Less:</strong> Amount credited by Bank but not accounted in Cash Book as per <strong>List C</strong></td>
+            <td class="num"></td>
+            <td class="num" id="cellSumC">0.00</td>
+          </tr>
+          <tr>
+            <td><strong>Less:</strong> Cheque issued but not presented for payment as per <strong>List D</strong></td>
+            <td class="num"></td>
+            <td class="num" id="cellSumD">0.00</td>
+          </tr>
+          <tr>
+            <td><strong>Less:</strong> Transfer from Non Operative account not recorded in Cash Book as per <strong>List E</strong></td>
+            <td class="num"></td>
+            <td class="num" id="cellSumE">0.00</td>
+          </tr>
+          <tr>
+            <td><strong>Less:</strong> Interest credited by Bank</td>
+            <td class="num"></td>
+            <td class="num">
+              <input type="number" step="0.01" id="inputInterestCredited" class="inline-num-input" value="0.00" oninput="recalculateBRS()">
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Add:</strong> Bank charges / interest debited by Bank</td>
+            <td class="num">
+              <input type="number" step="0.01" id="inputBankCharges" class="inline-num-input" value="0.00" oninput="recalculateBRS()">
+            </td>
+            <td class="num"></td>
+          </tr>
+          <tr class="total-row">
+            <td><strong>BALANCE AS PER CASH BOOK (Computed Reconciled Balance)</strong></td>
+            <td class="num" id="cellTallyLeft">0.00</td>
+            <td class="num" id="cellComputedCashBook">0.00</td>
+          </tr>
+          <tr style="background:#eff6ff; font-size:12px;">
+            <td>
+              <strong>Actual Cash Book Ledger Balance (from System):</strong>
+              <span id="reconcileBadge" style="margin-left:8px; padding:2px 8px; border-radius:4px; font-weight:700;">Checking...</span>
+            </td>
+            <td class="num" style="color:#64748b;">Difference: <span id="cellDiff">0.00</span></td>
+            <td class="num" style="color:var(--kwa-primary); font-weight:700;" id="cellSystemCashBook">0.00</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="font-size:11.5px; font-weight:700; margin-top:12px;">POST RECONCILIATION ENTRIES ON: ______________________</div>
+
+      <div class="sig-section">
+        <div class="sig-box">Prepared by</div>
+        <div class="sig-box">Verified by (DAO / JS)</div>
+        <div class="sig-box">Divisional Officer / Executive Engineer</div>
+      </div>
+
+      <!-- PAGE 2: SUPPORTING SCHEDULES (LISTS A, B, C, D, E) -->
+      <div class="page-break lists-wrapper">
+        <div style="text-align:center; font-weight:700; font-size:15px; color:var(--kwa-primary); margin-bottom:14px; text-transform:uppercase;">
+          SUPPORTING SCHEDULES TO BANK RECONCILIATION STATEMENT (LISTS A TO E)
+        </div>
+
+        <!-- LIST A -->
+        <div class="list-block">
+          <div class="list-header-bar">
+            <h3>LIST A — Amount Deposited but not credited by Bank</h3>
+            <button class="btn btn-add-row no-print" onclick="addListRow('A')">+ Add Row</button>
+          </div>
+          <table class="sub-list-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">Deposit Date of Cheque / D.D</th>
+                <th style="width:130px;">Cheque / D.D No.</th>
+                <th>Received From</th>
+                <th style="width:130px;">Amount Rs.</th>
+                <th style="width:130px;">Date of Subsequent Credit</th>
+                <th class="no-print" style="width:45px;">Del</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyListA"></tbody>
+            <tfoot>
+              <tr class="sub-total-row">
+                <td colspan="3" style="text-align:right;">Total List A:</td>
+                <td style="text-align:right; font-family:monospace;" id="footSumA">0.00</td>
+                <td></td>
+                <td class="no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- LIST B -->
+        <div class="list-block">
+          <div class="list-header-bar">
+            <h3>LIST B — Non Operative receipts not banked</h3>
+            <button class="btn btn-add-row no-print" onclick="addListRow('B')">+ Add Row</button>
+          </div>
+          <table class="sub-list-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">Date of Entry in Cash Book</th>
+                <th>Particulars</th>
+                <th style="width:130px;">Cheque / D.D No.</th>
+                <th style="width:130px;">Amount Rs.</th>
+                <th style="width:130px;">Date of Subsequent Deposit</th>
+                <th class="no-print" style="width:45px;">Del</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyListB"></tbody>
+            <tfoot>
+              <tr class="sub-total-row">
+                <td colspan="3" style="text-align:right;">Total List B:</td>
+                <td style="text-align:right; font-family:monospace;" id="footSumB">0.00</td>
+                <td></td>
+                <td class="no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- LIST C -->
+        <div class="list-block">
+          <div class="list-header-bar">
+            <h3>LIST C — Amount credited by Bank but not accounted in Cash Book</h3>
+            <button class="btn btn-add-row no-print" onclick="addListRow('C')">+ Add Row</button>
+          </div>
+          <table class="sub-list-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">Date of Credit</th>
+                <th style="width:130px;">Bank Advice No</th>
+                <th>Details as given by Bank</th>
+                <th style="width:130px;">Amount Rs.</th>
+                <th style="width:130px;">Date of Adjustment in Cash Book</th>
+                <th class="no-print" style="width:45px;">Del</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyListC"></tbody>
+            <tfoot>
+              <tr class="sub-total-row">
+                <td colspan="3" style="text-align:right;">Total List C:</td>
+                <td style="text-align:right; font-family:monospace;" id="footSumC">0.00</td>
+                <td></td>
+                <td class="no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- LIST D -->
+        <div class="list-block">
+          <div class="list-header-bar">
+            <h3>LIST D — Cheque issued but not presented for payment</h3>
+            <button class="btn btn-add-row no-print" onclick="addListRow('D')">+ Add Row</button>
+          </div>
+          <table class="sub-list-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">Cheque No.</th>
+                <th style="width:110px;">Date</th>
+                <th>Issued To</th>
+                <th style="width:130px;">Amount Rs.</th>
+                <th style="width:140px;">Date of Subsequent Payment</th>
+                <th class="no-print" style="width:45px;">Del</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyListD"></tbody>
+            <tfoot>
+              <tr class="sub-total-row">
+                <td colspan="3" style="text-align:right;">Total List D:</td>
+                <td style="text-align:right; font-family:monospace;" id="footSumD">0.00</td>
+                <td></td>
+                <td class="no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- LIST E -->
+        <div class="list-block">
+          <div class="list-header-bar">
+            <h3>LIST E — Transfer from Non Operative account not recorded in Cash Book</h3>
+            <button class="btn btn-add-row no-print" onclick="addListRow('E')">+ Add Row</button>
+          </div>
+          <table class="sub-list-table">
+            <thead>
+              <tr>
+                <th style="width:120px;">Date of Transfer</th>
+                <th style="width:130px;">Bank Advice No</th>
+                <th>Details as given by Bank</th>
+                <th style="width:130px;">Amount Rs.</th>
+                <th style="width:140px;">Date of Subsequent Entry in Cash Book</th>
+                <th class="no-print" style="width:45px;">Del</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyListE"></tbody>
+            <tfoot>
+              <tr class="sub-total-row">
+                <td colspan="3" style="text-align:right;">Total List E:</td>
+                <td style="text-align:right; font-family:monospace;" id="footSumE">0.00</td>
+                <td></td>
+                <td class="no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="sig-section">
+          <div class="sig-box">Prepared by</div>
+          <div class="sig-box">Verified by (DAO / JS)</div>
+          <div class="sig-box">Divisional Officer / Executive Engineer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://nayvftqylbjwspmjxbjc.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_qGT19bz8IOnF4-vWCbk4aQ_UCcaBc9U';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentOfficeId = '';
+    let bankMasterMap = {};
+    let systemCashBookBalance = 0;
+
+    let listsData = {
+      A: [], // { col1: depositDate, col2: chqNo, col3: receivedFrom, amount: 0, col5: subCreditDate }
+      B: [], // { col1: cbDate, col2: particulars, col3: chqNo, amount: 0, col5: subDepositDate }
+      C: [], // { col1: creditDate, col2: adviceNo, col3: details, amount: 0, col5: adjDate }
+      D: [], // { col1: chqNo, col2: date, col3: issuedTo, amount: 0, col5: subPayDate }
+      E: []  // { col1: transferDate, col2: adviceNo, col3: details, amount: 0, col5: subEntryDate }
+    };
+
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    function formatINR(num) {
+      return (Number(num) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function pickerValToDbMonthYear(pickerVal) {
+      if (!pickerVal) return '';
+      const [yyyy, mm] = pickerVal.split('-');
+      const mIdx = parseInt(mm, 10) - 1;
+      return `${MONTH_NAMES[mIdx]}-${yyyy}`;
+    }
+
+    window.onload = async function() {
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      if (error || !session) { window.location.href = 'login.html'; return; }
+      currentOfficeId = session.user.id;
+
+      const { data: officeSet } = await supabaseClient.from('office_settings').select('*').eq('office_id', currentOfficeId).single();
+      if (officeSet) {
+        document.getElementById('bannerOfficeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
+        document.getElementById('hdrDivision').innerText = officeSet.office_name.toUpperCase();
+      }
+
+      const now = new Date();
+      document.getElementById('monthPicker').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      await loadBanks();
+      document.body.style.display = 'block';
+    };
+
+    async function loadBanks() {
+      const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
+      const select = document.getElementById('bankSelect');
+      select.innerHTML = '<option value="">-- Select Bank --</option>';
+
+      (banks || []).forEach(b => {
+        bankMasterMap[b.account_nickname] = b;
+        const opt = document.createElement('option');
+        opt.value = b.account_nickname;
+        opt.innerText = `${b.account_nickname} (${b.bank_name} - ${b.account_no})`;
+        select.appendChild(opt);
+      });
+
+      if (banks && banks.length > 0) {
+        select.value = banks[0].account_nickname;
+        await loadBRSData();
+      }
+    }
+
+    function getStorageKey() {
+      const bankNick = document.getElementById('bankSelect').value;
+      const pickerVal = document.getElementById('monthPicker').value;
+      return `kwa_brs_${currentOfficeId}_${bankNick}_${pickerVal}`;
+    }
+
+    async function loadBRSData() {
+      const bankNick = document.getElementById('bankSelect').value;
+      const pickerVal = document.getElementById('monthPicker').value;
+      if (!bankNick || !pickerVal) return;
+
+      const bankInfo = bankMasterMap[bankNick] || {};
+      document.getElementById('displayBankName').innerText = `${bankInfo.bank_name || bankNick}${bankInfo.branch ? ', ' + bankInfo.branch : ''}`;
+      document.getElementById('displayAccountNo').innerText = `${bankInfo.account_no || 'N/A'} (${bankNick})`;
+
+      const [yyyy, mm] = pickerVal.split('-');
+      const lastDay = new Date(yyyy, mm, 0).getDate();
+      const asOnStr = `${String(lastDay).padStart(2, '0')}/${mm}/${yyyy}`;
+      document.getElementById('displayDateRange').innerText = asOnStr;
+      document.getElementById('hdrAsOnDate').innerText = asOnStr;
+
+      // Compute exact System Cash Book closing balance for this bank up to selected month
+      await computeSystemCashBookBalance(bankNick, pickerVal);
+
+      // Load saved BRS schedules from localStorage (or initialize empty)
+      const savedRaw = localStorage.getItem(getStorageKey());
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        document.getElementById('inputPassbookBal').value = parsed.passbookBal ?? systemCashBookBalance.toFixed(2);
+        document.getElementById('inputInterestCredited').value = parsed.interestCredited ?? '0.00';
+        document.getElementById('inputBankCharges').value = parsed.bankCharges ?? '0.00';
+        listsData = parsed.lists || { A: [], B: [], C: [], D: [], E: [] };
+      } else {
+        document.getElementById('inputPassbookBal').value = systemCashBookBalance.toFixed(2);
+        document.getElementById('inputInterestCredited').value = '0.00';
+        document.getElementById('inputBankCharges').value = '0.00';
+        listsData = { A: [], B: [], C: [], D: [], E: [] };
+      }
+
+      renderAllLists();
+      recalculateBRS();
+    }
+
+    async function computeSystemCashBookBalance(bankNick, pickerVal) {
+      const bankInfo = bankMasterMap[bankNick] || {};
+      const masterOpen = Number(bankInfo.opening_balance) || 0;
+      const [targetY, targetM] = pickerVal.split('-').map(Number);
+
+      const { data: allTxns } = await supabaseClient
+        .from('transactions')
+        .select('*')
+        .eq('office_id', currentOfficeId);
+
+      // Filter transactions belonging to this bank up to target month
+      const bankTxns = (allTxns || []).filter(t => {
+        if (!t.bank_nickname || t.bank_nickname.trim().toLowerCase() !== bankNick.trim().toLowerCase()) return false;
+        if (!t.month_year) return true;
+        const [mName, yStr] = t.month_year.split('-');
+        const mIdx = MONTH_NAMES.findIndex(m => m.toLowerCase() === mName.trim().toLowerCase()) + 1;
+        const yNum = parseInt(yStr, 10);
+        return (yNum < targetY) || (yNum === targetY && mIdx <= targetM);
+      });
+
+      // Net bank debit logic: Sum(CBV Payments) - Sum(Connected CBR Receipts)
+      const paymentMap = {};
+      const cbvLinkedReceipts = {};
+      let standaloneCredits = 0;
+
+      bankTxns.forEach(t => {
+        const type = (t.type || '').trim().toLowerCase();
+        const amt = Number(t.amount) || 0;
+        const serial = String(t.serial_no || '').trim();
+
+        if (type === 'payment') {
+          if (!paymentMap[serial]) paymentMap[serial] = 0;
+          paymentMap[serial] += amt;
+        } else if (type === 'receipt') {
+          const linkedCbv = String(t.linked_cbv || '').trim();
+          if (linkedCbv) {
+            if (!cbvLinkedReceipts[linkedCbv]) cbvLinkedReceipts[linkedCbv] = 0;
+            cbvLinkedReceipts[linkedCbv] += amt;
+          } else {
+            standaloneCredits += amt;
+          }
+        }
+      });
+
+      let netDebits = 0;
+      Object.keys(paymentMap).forEach(cbvKey => {
+        const net = paymentMap[cbvKey] - (cbvLinkedReceipts[cbvKey] || 0);
+        if (net > 0) netDebits += net;
+      });
+
+      systemCashBookBalance = masterOpen + standaloneCredits - netDebits;
+      document.getElementById('cellSystemCashBook').innerText = formatINR(systemCashBookBalance);
+    }
+
+    async function autoPullFromCashBook() {
+      const bankNick = document.getElementById('bankSelect').value;
+      const pickerVal = document.getElementById('monthPicker').value;
+      if (!bankNick || !pickerVal) return;
+
+      const dbMonthYear = pickerValToDbMonthYear(pickerVal);
+      Swal.fire({ title: 'Scanning Cash Book Entries...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      const { data: txns } = await supabaseClient
+        .from('transactions')
+        .select('*')
+        .eq('office_id', currentOfficeId)
+        .eq('month_year', dbMonthYear);
+
+      Swal.close();
+
+      const bTxns = (txns || []).filter(t => t.bank_nickname && t.bank_nickname.trim().toLowerCase() === bankNick.trim().toLowerCase());
+      let addedCount = 0;
+
+      bTxns.forEach(t => {
+        const amt = Number(t.amount) || 0;
+        const type = (t.type || '').trim().toLowerCase();
+        const desc = String(t.description || t.particulars || '').toLowerCase();
+
+        // Populate List D for cheques issued in the last 5 days of the month (likely unpresented) or marked unpresented
+        if (type === 'payment' && t.cheque_no) {
+          const dayPart = parseInt((t.date || '01').split(/[-/]/)[0], 10);
+          if (dayPart >= 25 || desc.includes('not presented')) {
+            listsData.D.push({
+              col1: t.cheque_no,
+              col2: t.date || '',
+              col3: t.party_name || t.description || '',
+              amount: amt,
+              col5: ''
+            });
+            addedCount++;
+          }
+        }
+      });
+
+      renderAllLists();
+      recalculateBRS();
+      Swal.fire('Scan Complete', `Imported ${addedCount} candidate item(s) from ${dbMonthYear} Cash Book into schedules. You can edit or add rows manually.`, 'info');
+    }
+
+    function addListRow(listKey) {
+      listsData[listKey].push({ col1: '', col2: '', col3: '', amount: 0, col5: '' });
+      renderListTable(listKey);
+      recalculateBRS();
+    }
+
+    function deleteListRow(listKey, idx) {
+      listsData[listKey].splice(idx, 1);
+      renderListTable(listKey);
+      recalculateBRS();
+    }
+
+    function updateListCell(listKey, idx, field, val) {
+      if (field === 'amount') {
+        listsData[listKey][idx][field] = parseFloat(val) || 0;
+        recalculateBRS();
+      } else {
+        listsData[listKey][idx][field] = val;
+      }
+    }
+
+    function renderAllLists() {
+      ['A', 'B', 'C', 'D', 'E'].forEach(k => renderListTable(k));
+    }
+
+    function renderListTable(listKey) {
+      const tbody = document.getElementById(`tbodyList${listKey}`);
+      const rows = listsData[listKey] || [];
+      tbody.innerHTML = '';
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; font-style:italic; padding:8px;">Nil</td><td class="no-print"></td></tr>`;
+        return;
+      }
+
+      rows.forEach((r, idx) => {
+        tbody.innerHTML += `
+          <tr>
+            <td><input type="text" value="${r.col1 || ''}" placeholder="dd/mm/yyyy" onchange="updateListCell('${listKey}', ${idx}, 'col1', this.value)"></td>
+            <td><input type="text" value="${r.col2 || ''}" placeholder="No. / Date" onchange="updateListCell('${listKey}', ${idx}, 'col2', this.value)"></td>
+            <td><input type="text" value="${r.col3 || ''}" placeholder="Particulars / Party" onchange="updateListCell('${listKey}', ${idx}, 'col3', this.value)"></td>
+            <td><input type="number" step="0.01" class="num-cell" value="${r.amount || ''}" placeholder="0.00" oninput="updateListCell('${listKey}', ${idx}, 'amount', this.value)"></td>
+            <td><input type="text" value="${r.col5 || ''}" placeholder="dd/mm/yyyy" onchange="updateListCell('${listKey}', ${idx}, 'col5', this.value)"></td>
+            <td class="no-print" style="text-align:center;"><button class="btn-del-row" onclick="deleteListRow('${listKey}', ${idx})">✕</button></td>
+          </tr>
+        `;
+      });
+    }
+
+    function recalculateBRS() {
+      const sumList = (k) => (listsData[k] || []).reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+
+      const sumA = sumList('A');
+      const sumB = sumList('B');
+      const sumC = sumList('C');
+      const sumD = sumList('D');
+      const sumE = sumList('E');
+
+      document.getElementById('footSumA').innerText = formatINR(sumA);
+      document.getElementById('footSumB').innerText = formatINR(sumB);
+      document.getElementById('footSumC').innerText = formatINR(sumC);
+      document.getElementById('footSumD').innerText = formatINR(sumD);
+      document.getElementById('footSumE').innerText = formatINR(sumE);
+
+      document.getElementById('cellSumA').innerText = sumA > 0 ? formatINR(sumA) : '0.00';
+      document.getElementById('cellSumB').innerText = sumB > 0 ? formatINR(sumB) : '0.00';
+      document.getElementById('cellSumC').innerText = sumC > 0 ? formatINR(sumC) : '0.00';
+      document.getElementById('cellSumD').innerText = sumD > 0 ? formatINR(sumD) : '0.00';
+      document.getElementById('cellSumE').innerText = sumE > 0 ? formatINR(sumE) : '0.00';
+
+      const passbookBal = parseFloat(document.getElementById('inputPassbookBal').value) || 0;
+      const interestCredited = parseFloat(document.getElementById('inputInterestCredited').value) || 0;
+      const bankCharges = parseFloat(document.getElementById('inputBankCharges').value) || 0;
+
+      const leftSubTotal = passbookBal + sumA + sumB + bankCharges;
+      document.getElementById('cellSubTotalLeft').innerText = formatINR(leftSubTotal);
+
+      const rightDeductions = sumC + sumD + sumE + interestCredited;
+      const computedCashBook = leftSubTotal - rightDeductions;
+
+      document.getElementById('cellTallyLeft').innerText = formatINR(leftSubTotal);
+      document.getElementById('cellComputedCashBook').innerText = formatINR(computedCashBook);
+
+      const diff = Math.abs(computedCashBook - systemCashBookBalance);
+      document.getElementById('cellDiff').innerText = formatINR(computedCashBook - systemCashBookBalance);
+
+      const badge = document.getElementById('reconcileBadge');
+      if (diff < 0.01) {
+        badge.innerText = '✅ RECONCILED';
+        badge.style.background = '#d1fae5';
+        badge.style.color = '#065f46';
+      } else {
+        badge.innerText = '⚠️ UNRECONCILED DIFFERENCE';
+        badge.style.background = '#fee2e2';
+        badge.style.color = '#991b1b';
+      }
+    }
+
+    function saveBRSState() {
+      const payload = {
+        passbookBal: document.getElementById('inputPassbookBal').value,
+        interestCredited: document.getElementById('inputInterestCredited').value,
+        bankCharges: document.getElementById('inputBankCharges').value,
+        lists: listsData
+      };
+      localStorage.setItem(getStorageKey(), JSON.stringify(payload));
+      Swal.fire({ title: 'Saved!', text: 'BRS Form CB-25 & Lists A–E saved for this bank and month.', icon: 'success', timer: 1600, showConfirmButton: false });
+    }
+  </script>
+</body>
+</html>
