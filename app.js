@@ -1,5 +1,10 @@
 // Initialize Supabase Client
 
+async function routeAfterLogin(userId) {
+  const { data: row } = await supabaseClient.from('office_settings').select('office_id').eq('office_id', userId).maybeSingle();
+  window.location.href = row ? 'index.html' : 'setup.html';
+}
+
 // Handle Login Form Submission
 async function handleLogin(event) {
   event.preventDefault();
@@ -21,8 +26,8 @@ async function handleLogin(event) {
 
     if (error) throw error;
 
-    // Login successful -> Redirect to your main app page
-    window.location.href = 'index.html';
+    // Login successful -> go to setup if this office has not been set up yet, otherwise the dashboard
+    await routeAfterLogin(data.user.id);
 
   } catch (error) {
     errorDiv.innerText = error.message;
@@ -36,7 +41,7 @@ async function handleLogin(event) {
 async function checkSession() {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
-    window.location.href = 'index.html';
+    await routeAfterLogin(session.user.id);
   }
 }
 
