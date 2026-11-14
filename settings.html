@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KWA - Office Settings</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="kwa-core.js"></script>
+  <script>window.addEventListener("load",function(){if(typeof supabaseClient==="undefined"){document.body.style.display="block";document.body.innerHTML="<h3 style=\"font-family:sans-serif;padding:24px;color:#b91c1c\">kwa-core.js was not loaded. Upload kwa-core.js to the same folder as this page and refresh.</h3>";}});</script>
+  <style>
+    :root { --p:#0b3d73; --p2:#1558a6; --bg:#eef2f7; --bd:#e2e8f0; --mut:#5b6b80; }
+    * { box-sizing: border-box; }
+    body { display:none; font-family:'Segoe UI',system-ui,sans-serif; margin:0; background:var(--bg); color:#0f172a; font-size:14px; }
+    .container { max-width:1100px; margin:0 auto; padding:0 20px 40px; }
+    .banner { background:linear-gradient(120deg,#082c54,var(--p),var(--p2)); color:#fff; padding:14px 24px; margin:0 -20px 22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+    .banner h1 { margin:0; font-size:18px; text-transform:uppercase; }
+    .banner small { opacity:.9; }
+    .btn { background:var(--p); color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; font-size:13px; text-decoration:none; display:inline-block; }
+    .btn:hover { background:#082c54; } .btn.light { background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.4); }
+    .btn.red { background:#dc2626; } .btn.green { background:#059669; } .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .tabs { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+    .tab { padding:9px 18px; border-radius:999px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; font-weight:600; font-size:13px; }
+    .tab.on { background:var(--p); color:#fff; border-color:var(--p); }
+    .card { background:#fff; border:1px solid var(--bd); border-radius:12px; padding:20px 22px; margin-bottom:18px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+    .card h3 { margin:0 0 4px; color:var(--p); font-size:16px; } .card p.sub { margin:0 0 14px; color:var(--mut); font-size:12.5px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
+    label { display:block; font-size:12px; font-weight:600; color:#475569; margin-bottom:4px; }
+    input, select { width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#fff; font-family:inherit; }
+    input[readonly] { background:#f1f5f9; color:#64748b; }
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    th { background:#1e293b; color:#fff; text-align:left; padding:8px; font-size:11px; text-transform:uppercase; }
+    td { border-bottom:1px solid var(--bd); padding:6px 8px; vertical-align:middle; }
+    .wrap { overflow-x:auto; } .note { background:#fef3c7; border:1px solid #fcd34d; color:#92400e; padding:10px 12px; border-radius:8px; font-size:12.5px; margin-top:12px; }
+    .info { background:#e0f2fe; border:1px solid #7dd3fc; color:#075985; padding:10px 12px; border-radius:8px; font-size:13px; margin-top:12px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="banner">
+    <div><h1>Office Settings</h1><small id="officeLine">Loading...</small></div>
+    <a href="index.html" class="btn light">🏠 Home</a>
+  </div>
+
+  <div class="tabs">
+    <div class="tab on" data-t="office" onclick="showTab('office')">🏢 Office</div>
+    <div class="tab" data-t="banks" onclick="showTab('banks')">🏦 Bank Accounts</div>
+    <div class="tab" data-t="opening" onclick="showTab('opening')">🔢 Opening Balances</div>
+  </div>
+
+  <!-- OFFICE -->
+  <div id="tab-office">
+    <div class="card">
+      <h3>Office Details</h3>
+      <p class="sub">The name and ARU code appear on every page and printed report. Changing them does not affect any transaction.</p>
+      <div class="grid">
+        <div><label>Office Name</label><input id="officeName"></div>
+        <div><label>ARU Code</label><input id="aruCode"></div>
+        <div><label>Starting Month</label><input id="startMonth" readonly></div>
+        <div><label>Active Month</label><input id="activeMonth" readonly></div>
+        <div><label>Initial Cash Opening Balance (₹)</label><input type="number" step="0.01" id="cashBase"></div>
+      </div>
+      <div class="note">The initial cash balance is the cash in hand when the office started using this system. Change it only to correct a setup mistake. To restart from a later month use <b>Opening Balances</b>.</div>
+      <div style="margin-top:14px;"><button class="btn green" onclick="saveOffice()">💾 Save Office Details</button></div>
+    </div>
+  </div>
+
+  <!-- BANKS -->
+  <div id="tab-banks" class="hidden">
+    <div class="card">
+      <h3>Bank Accounts</h3>
+      <p class="sub">Nickname and category cannot be changed because every voucher and reconciliation refers to them. Deactivate an account you no longer use; its history stays.</p>
+      <div class="wrap"><table>
+        <thead><tr><th>Nickname</th><th>Category</th><th>Bank</th><th>Account No</th><th>Branch</th><th>Opening Bal (₹)</th><th>Active</th><th></th></tr></thead>
+        <tbody id="bankRows"></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>Add a New Bank Account</h3>
+      <p class="sub">The opening balance is the balance in the cash book when you start using the account. If it was opened in an earlier month, also add an entry under Opening Balances.</p>
+      <div class="grid">
+        <div><label>Nickname *</label><input id="nbNick" placeholder="e.g. Establishment"></div>
+        <div><label>Account Number *</label><input id="nbAcc"></div>
+        <div><label>Bank *</label><input id="nbBank" list="bankList" placeholder="State Bank of India"></div>
+        <div><label>Branch</label><input id="nbBranch"></div>
+        <div><label>Category *</label><select id="nbCat"><option>Drawing</option><option>Non Operative</option></select></div>
+        <div><label>Opening Balance (₹)</label><input type="number" step="0.01" id="nbOpen" value="0.00"></div>
+      </div>
+      <datalist id="bankList"><option>State Bank of India</option><option>Punjab National Bank</option><option>Federal Bank</option><option>Indian Bank</option></datalist>
+      <div style="margin-top:14px;"><button class="btn green" onclick="addBank()">+ Add Bank Account</button></div>
+    </div>
+  </div>
+
+  <!-- OPENING BALANCES -->
+  <div id="tab-opening" class="hidden">
+    <div class="card">
+      <h3>Set Opening Balance for a Month</h3>
+      <p class="sub">Use this when a month's entries were missed or you want to start afresh from a new month. From the chosen month onward, the account's balance starts from the amount you enter; earlier entries stay on record but no longer carry into the balance.</p>
+      <div class="grid">
+        <div><label>Account</label><select id="obAcc" onchange="previewCarried()"></select></div>
+        <div><label>Month (active month or later)</label><select id="obMonth" onchange="previewCarried()"></select></div>
+        <div><label>Opening Balance (₹)</label><input type="number" step="0.01" id="obAmt"></div>
+        <div><label>Reason (required)</label><input id="obReason" placeholder="e.g. Sept entries not maintained"></div>
+      </div>
+      <div class="info" id="obPreview">Select an account and month.</div>
+      <div style="margin-top:14px;"><button class="btn green" onclick="saveOpening()">💾 Save Opening Balance</button></div>
+    </div>
+    <div class="card">
+      <h3>Manual Opening Balances on Record</h3>
+      <div class="wrap"><table>
+        <thead><tr><th>Month</th><th>Account</th><th style="text-align:right;">Amount (₹)</th><th>Reason</th><th>Entered</th><th></th></tr></thead>
+        <tbody id="obRows"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const BANK_LOGOS = {
+    "State Bank of India": "https://lh3.googleusercontent.com/d/1epq0kaBXIMoZFB-fEWZ3SQcQNBuEwqib",
+    "Punjab National Bank": "https://lh3.googleusercontent.com/d/1sPajG-NVVOpg2UQXOMMBSUy0C8HJ3wcB",
+    "Federal Bank": "https://lh3.googleusercontent.com/d/1m8Y5D5Jak61WyyCrJuY1cZ3Y7W-7mgop",
+    "Indian Bank": "https://lh3.googleusercontent.com/d/10tfiHP2ofwGCK2qc515fPWdWALK-lZ9L"
+  };
+  let uid = '', os = null, banks = [], ovRows = [];
+  const esc = KWA.esc, inr = KWA.formatINR;
+
+  window.onload = async function () {
+    const s = await KWA.requireSession(); if (!s) return;
+    uid = s.user.id;
+    await reload();
+    document.body.style.display = 'block';
+  };
+
+  async function reload() {
+    const [a, b, c] = await Promise.all([
+      supabaseClient.from('office_settings').select('*').eq('office_id', uid).maybeSingle(),
+      supabaseClient.from('bank_master').select('*').eq('office_id', uid).order('created_at', { ascending: true }),
+      supabaseClient.from('opening_balances').select('*').eq('office_id', uid).order('created_at', { ascending: false })
+    ]);
+    os = a.data;
+    if (!os) { window.location.href = 'setup.html'; return; }
+    banks = b.data || [];
+    ovRows = c.data || [];     // empty if the migration has not been run yet
+    document.getElementById('officeLine').innerText = `${os.office_name} (ARU: ${os.aru_code})`;
+    document.getElementById('officeName').value = os.office_name || '';
+    document.getElementById('aruCode').value = os.aru_code || '';
+    document.getElementById('startMonth').value = os.starting_month || '';
+    document.getElementById('activeMonth').value = os.current_active_month || '';
+    document.getElementById('cashBase').value = Number(os.cash_opening_balance || 0).toFixed(2);
+    renderBanks(); renderOpeningForm(); renderOpeningRows();
+  }
+
+  function showTab(t) {
+    ['office', 'banks', 'opening'].forEach(x => {
+      document.getElementById('tab-' + x).classList.toggle('hidden', x !== t);
+      document.querySelector(`.tab[data-t="${x}"]`).classList.toggle('on', x === t);
+    });
+  }
+
+  /* ---------------- Office ---------------- */
+  async function saveOffice() {
+    const name = document.getElementById('officeName').value.trim();
+    const aru = document.getElementById('aruCode').value.trim();
+    const cash = parseFloat(document.getElementById('cashBase').value) || 0;
+    if (!name || !aru) { Swal.fire('Missing', 'Office name and ARU code are required.', 'warning'); return; }
+    if (cash !== Number(os.cash_opening_balance || 0)) {
+      const r = await Swal.fire({ icon: 'warning', title: 'Change initial cash balance?', html: `This moves every cash balance from the start by <b>₹ ${inr(cash - Number(os.cash_opening_balance || 0))}</b>.`, showCancelButton: true, confirmButtonText: 'Yes, change it' });
+      if (!r.isConfirmed) return;
+    }
+    const { error } = await supabaseClient.from('office_settings').update({ office_name: name, aru_code: aru, cash_opening_balance: cash }).eq('office_id', uid);
+    if (error) { Swal.fire('Error', error.message, 'error'); return; }
+    await reload(); Swal.fire({ icon: 'success', title: 'Saved', timer: 1200, showConfirmButton: false });
+  }
+
+  /* ---------------- Banks ---------------- */
+  function renderBanks() {
+    document.getElementById('bankRows').innerHTML = banks.map((b, i) => `
+      <tr>
+        <td><b>${esc(b.account_nickname)}</b></td>
+        <td>${esc(b.category)}</td>
+        <td><input id="bk_name_${i}" value="${esc(b.bank_name)}" list="bankList"></td>
+        <td><input id="bk_acc_${i}" value="${esc(b.account_no)}"></td>
+        <td><input id="bk_br_${i}" value="${esc(b.branch || '')}"></td>
+        <td><input type="number" step="0.01" id="bk_open_${i}" value="${Number(b.opening_balance || 0).toFixed(2)}" style="text-align:right;"></td>
+        <td style="text-align:center;"><input type="checkbox" id="bk_act_${i}" ${b.is_active === false ? '' : 'checked'} style="width:auto;"></td>
+        <td><button class="btn" onclick="saveBank(${i})">Save</button></td>
+      </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#64748b;padding:16px;">No bank accounts yet.</td></tr>';
+  }
+
+  async function saveBank(i) {
+    const b = banks[i];
+    const open = parseFloat(document.getElementById('bk_open_' + i).value) || 0;
+    const bankName = document.getElementById('bk_name_' + i).value.trim();
+    if (open !== Number(b.opening_balance || 0)) {
+      const r = await Swal.fire({ icon: 'warning', title: 'Change opening balance?', html: `This shifts every balance of <b>${esc(b.account_nickname)}</b> by ₹ ${inr(open - Number(b.opening_balance || 0))}, including past months.<br><br>To restart from a particular month instead, use <b>Opening Balances</b>.`, showCancelButton: true, confirmButtonText: 'Yes, change it' });
+      if (!r.isConfirmed) return;
+    }
+    const payload = {
+      bank_name: bankName, account_no: document.getElementById('bk_acc_' + i).value.trim(),
+      branch: document.getElementById('bk_br_' + i).value.trim(), opening_balance: open,
+      is_active: document.getElementById('bk_act_' + i).checked
+    };
+    if (BANK_LOGOS[bankName]) payload.logo_url = BANK_LOGOS[bankName];
+    const { error } = await supabaseClient.from('bank_master').update(payload).eq('id', b.id).eq('office_id', uid);
+    if (error) { Swal.fire('Error', error.message, 'error'); return; }
+    await reload(); Swal.fire({ icon: 'success', title: 'Saved', timer: 1000, showConfirmButton: false });
+  }
+
+  async function addBank() {
+    const nick = document.getElementById('nbNick').value.trim();
+    const acc = document.getElementById('nbAcc').value.trim();
+    const bank = document.getElementById('nbBank').value.trim();
+    if (!nick || !acc || !bank) { Swal.fire('Missing', 'Nickname, account number and bank are required.', 'warning'); return; }
+    if (banks.some(b => (b.account_nickname || '').trim().toLowerCase() === nick.toLowerCase())) { Swal.fire('Duplicate', 'A bank account with this nickname already exists.', 'error'); return; }
+    const open = parseFloat(document.getElementById('nbOpen').value) || 0;
+    const { error } = await supabaseClient.from('bank_master').insert([{
+      office_id: uid, account_nickname: nick, account_no: acc, bank_name: bank,
+      branch: document.getElementById('nbBranch').value.trim(), category: document.getElementById('nbCat').value,
+      opening_balance: open, passbook_balance: open, logo_url: BANK_LOGOS[bank] || '', is_active: true
+    }]);
+    if (error) { Swal.fire('Error', error.message, 'error'); return; }
+    ['nbNick', 'nbAcc', 'nbBank', 'nbBranch'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('nbOpen').value = '0.00';
+    await reload(); Swal.fire({ icon: 'success', title: 'Bank account added', timer: 1200, showConfirmButton: false });
+  }
+
+  /* ---------------- Opening balances ---------------- */
+  function renderOpeningForm() {
+    const accSel = document.getElementById('obAcc');
+    const cur = accSel.value;
+    accSel.innerHTML = '<option value="Cash">Cash Account</option>' + banks.map(b => `<option value="${esc(b.account_nickname)}">${esc(b.account_nickname)} (${esc(b.category)})</option>`).join('');
+    if (cur) accSel.value = cur;
+    const mSel = document.getElementById('obMonth');
+    const act = os.current_active_month;
+    mSel.innerHTML = [0, 1, 2, 3, 4, 5].map(n => { const m = KWA.shiftMonth(act, n); return `<option value="${m}">${m}${n === 0 ? ' (active)' : ''}</option>`; }).join('');
+    previewCarried();
+  }
+
+  // Balance the books would carry into the chosen month if no manual entry existed for that month
+  async function previewCarried() {
+    const acc = document.getElementById('obAcc').value, month = document.getElementById('obMonth').value;
+    const box = document.getElementById('obPreview');
+    if (!acc || !month) return;
+    const isCash = acc === 'Cash';
+    const bank = banks.find(b => b.account_nickname === acc);
+    const { data: txns } = await supabaseClient.from('transactions').select('type,amount,month_year,category,bank_nickname,serial_no,linked_cbv,date,cheque_no,party_name,txn_id').eq('office_id', uid);
+    const mine = (txns || []).filter(t => isCash ? (t.category || '').trim().toLowerCase() === 'cash' : (t.bank_nickname || '').trim().toLowerCase() === acc.trim().toLowerCase());
+    const others = KWA.overridesFor(ovRows, acc).filter(o => o.month_year !== month);
+    const carried = KWA.accountBalance({ base: isCash ? Number(os.cash_opening_balance) || 0 : Number(bank.opening_balance) || 0, overrides: others, txns: mine, isCash, beforeMonth: month });
+    box.innerHTML = `Balance carried forward by the cash book into <b>${esc(month)}</b>: <b>₹ ${inr(carried)}</b>. Whatever you enter below replaces it from ${esc(month)} onward, and the difference is recorded.`;
+    document.getElementById('obAmt').placeholder = inr(carried);
+    window._carried = carried;
+  }
+
+  async function saveOpening() {
+    const acc = document.getElementById('obAcc').value, month = document.getElementById('obMonth').value;
+    const amtStr = document.getElementById('obAmt').value, reason = document.getElementById('obReason').value.trim();
+    if (amtStr === '' || isNaN(parseFloat(amtStr))) { Swal.fire('Missing', 'Enter the opening balance.', 'warning'); return; }
+    if (!reason) { Swal.fire('Reason required', 'Please state why the balance is being set manually.', 'warning'); return; }
+    const amt = parseFloat(amtStr);
+    const diff = amt - (window._carried || 0);
+    const r = await Swal.fire({ icon: 'question', title: 'Save opening balance?', html: `<b>${esc(acc)}</b> will open <b>${esc(month)}</b> with <b>₹ ${inr(amt)}</b>.<br>Difference from the books: <b>₹ ${inr(diff)}</b>`, showCancelButton: true, confirmButtonText: 'Save' });
+    if (!r.isConfirmed) return;
+    const { error } = await supabaseClient.from('opening_balances').upsert({ office_id: uid, month_year: month, account_type: acc, amount: amt, reason }, { onConflict: 'office_id,month_year,account_type' });
+    if (error) { Swal.fire('Error', error.message + ' (run kwa_migration_2.sql first if the table is missing)', 'error'); return; }
+    document.getElementById('obAmt').value = ''; document.getElementById('obReason').value = '';
+    await reload(); Swal.fire({ icon: 'success', title: 'Saved', timer: 1200, showConfirmButton: false });
+  }
+
+  function renderOpeningRows() {
+    const actKey = KWA.monthKey(os.current_active_month);
+    const rows = ovRows.slice().sort((a, b) => KWA.monthKey(b.month_year) - KWA.monthKey(a.month_year));
+    document.getElementById('obRows').innerHTML = rows.map(o => `
+      <tr><td>${esc(o.month_year)}</td><td>${esc(o.account_type)}</td><td style="text-align:right;">${inr(o.amount)}</td>
+      <td>${esc(o.reason || '')}</td><td>${o.created_at ? new Date(o.created_at).toLocaleDateString('en-IN') : ''}</td>
+      <td><button class="btn red" ${KWA.monthKey(o.month_year) < actKey ? 'disabled title="Closed month"' : ''} onclick="deleteOpening(${o.id})">Delete</button></td></tr>`).join('')
+      || '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:16px;">No manual opening balances.</td></tr>';
+  }
+
+  async function deleteOpening(id) {
+    const r = await Swal.fire({ icon: 'warning', title: 'Delete this entry?', text: 'Balances revert to the carried-forward amount.', showCancelButton: true, confirmButtonText: 'Delete' });
+    if (!r.isConfirmed) return;
+    const { error } = await supabaseClient.from('opening_balances').delete().eq('id', id).eq('office_id', uid);
+    if (error) { Swal.fire('Error', error.message, 'error'); return; }
+    await reload();
+  }
+</script>
+</body>
+</html>
