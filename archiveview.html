@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KWA - Archived Months Cash Book</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="kwa-core.js"></script>
+  <style>
+    :root {
+      --kwa-primary: #003366;
+      --kwa-secondary: #004d99;
+      --kwa-accent: #0ea5e9;
+      --bg-page: #f1f5f9;
+      --card-bg: #ffffff;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --border-light: #e2e8f0;
+      --green-credit: #059669;
+      --red-debit: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body { 
+      display: none; 
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      margin: 0; padding: 20px; 
+      background-color: var(--bg-page); color: var(--text-dark);
+      line-height: 1.5;
+    }
+    .container { max-width: 1440px; margin: 0 auto; }
+    .app-banner { 
+      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
+      color: #ffffff; padding: 18px 24px; border-radius: 10px; margin-bottom: 20px; 
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; 
+    }
+    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; }
+    .banner-meta { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-size: 13px; opacity: 0.9; }
+    .btn-nav-home { 
+      background-color: rgba(255, 255, 255, 0.15); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 8px 16px; font-size: 13px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; 
+    }
+    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); }
+    .controls-bar {
+      background: var(--card-bg); padding: 16px 20px; border-radius: 10px; border: 1px solid var(--border-light);
+      margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+    }
+    .controls-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .controls-left select, .controls-left input {
+      padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #fff;
+    }
+    .btn { background-color: var(--kwa-primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    .btn:hover { background-color: #002244; }
+    .card { background: var(--card-bg); padding: 24px; border-radius: 10px; border: 1px solid var(--border-light); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .header-box { text-align: center; font-weight: 700; margin-bottom: 20px; color: #0f172a; }
+    .table-wrap { overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 20px; }
+    table.data-grid { width: 100%; border-collapse: collapse; font-size: 12px; background: #fff; }
+    table.data-grid th, table.data-grid td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+    table.data-grid th { background-color: #1e293b; color: #ffffff; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', monospace; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app-banner">
+      <div class="banner-left">
+        <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
+        <div class="banner-meta">
+          <span>Archived Cash Book & Monthly Ledger</span>
+        </div>
+      </div>
+      <div>
+        <a href="index.html" class="btn-nav-home">🏠 Home</a>
+      </div>
+    </div>
+
+    <div class="controls-bar">
+      <div class="controls-left">
+        <label for="archiveMonthSelect"><b>Select Archived Month:</b></label>
+        <select id="archiveMonthSelect" onchange="fetchArchivedData()">
+          <option value="">-- Select Month --</option>
+        </select>
+        <button class="btn" onclick="fetchArchivedData()">📂 Load Archive</button>
+      </div>
+      <div>
+        <button class="btn" style="background-color: #059669;" onclick="window.print()">🖨️ Print / PDF</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="header-box">
+        <div style="font-size: 18px; color: var(--kwa-primary);">KERALA WATER AUTHORITY</div>
+        <div style="font-size: 15px;" id="reportOfficeName">PH DIVISION THIRUVALLA</div>
+        <div style="font-size: 14px; text-transform: uppercase; margin-top: 4px;">ARCHIVED CASH BOOK TRANSACTIONS FOR <span id="displayMonth">--</span></div>
+      </div>
+
+      <div id="archiveContent">
+        <p style="text-align:center; color: var(--text-muted); font-style: italic; padding: 30px;">Select a month above to load archived records.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    let currentOfficeId = '';
+    let activeMonthName = '';
+
+    window.onload = async function() {
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      if (error || !session) { window.location.href = 'login.html'; return; }
+      currentOfficeId = session.user.id;
+
+      const { data: officeSet } = await supabaseClient.from('office_settings').select('*').eq('office_id', currentOfficeId).single();
+      if (officeSet) {
+        activeMonthName = officeSet.current_active_month;
+        document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
+        document.getElementById('reportOfficeName').innerText = officeSet.office_name.toUpperCase();
+      }
+
+      document.body.style.display = 'block';
+      await loadAvailableMonths();
+    };
+
+    function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+    const MN = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+    function monthKey(m) { const p = String(m).split('-'); return (parseInt(p[1], 10) || 0) * 100 + MN.indexOf(p[0].trim().toLowerCase()); }
+
+    async function loadAvailableMonths() {
+      const { data: txns } = await supabaseClient.from('transactions').select('month_year').eq('office_id', currentOfficeId);
+      const monthsSet = new Set();
+      (txns || []).forEach(t => { if (t.month_year) monthsSet.add(t.month_year); });
+
+      const select = document.getElementById('archiveMonthSelect');
+      select.innerHTML = '<option value="">-- Select Month --</option>';
+      Array.from(monthsSet).filter(m => m !== activeMonthName).sort((a, b) => monthKey(a) - monthKey(b)).forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.innerText = m;
+        select.appendChild(opt);
+      });
+    }
+
+    async function fetchArchivedData() {
+      const mYear = document.getElementById('archiveMonthSelect').value;
+      if (!mYear) return;
+      document.getElementById('displayMonth').innerText = mYear;
+
+      Swal.fire({ title: 'Loading Archive...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      const { data: txns, error } = await supabaseClient
+        .from('transactions')
+        .select('*')
+        .eq('office_id', currentOfficeId)
+        .eq('month_year', mYear)
+        .order('txn_date', { ascending: true }).order('created_at', { ascending: true });
+
+      Swal.close();
+      if (error) {
+        Swal.fire('Error', error.message, 'error');
+        return;
+      }
+
+      renderArchiveTable(txns || []);
+    }
+
+    function renderArchiveTable(txns) {
+      const container = document.getElementById('archiveContent');
+      if (txns.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding: 30px; color: var(--text-muted);">No records found for this archived month.</p>';
+        return;
+      }
+
+      let html = `
+        <div class="table-wrap">
+          <table class="data-grid">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Serial No</th>
+                <th>Account Code</th>
+                <th>Particulars</th>
+                <th>Party Name</th>
+                <th>Bank Nickname</th>
+                <th class="num">Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody>`;
+
+      let totalReceipts = 0, totalPayments = 0;
+      txns.forEach(t => {
+        const amt = Number(t.amount) || 0;
+        if (t.type === 'Receipt') totalReceipts += amt;
+        else totalPayments += amt;
+
+        html += `
+          <tr>
+            <td>${esc(t.date || '-')}</td>
+            <td><strong>${esc(t.type || '-')}</strong></td>
+            <td>${esc(t.serial_no || '-')}</td>
+            <td>${esc(t.account_code || '-')}</td>
+            <td>${esc(t.particulars || t.description || '-')}</td>
+            <td>${esc(t.party_name || '-')}</td>
+            <td>${esc(t.bank_nickname || '-')}</td>
+            <td class="num">₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+          </tr>`;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; background: #f8fafc; padding: 14px; border: 1px solid #cbd5e1; border-radius: 6px;">
+          <span>Total Receipts: <span style="color: #059669;">₹${totalReceipts.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></span>
+          <span>Total Payments: <span style="color: #dc2626;">₹${totalPayments.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></span>
+        </div>`;
+
+      container.innerHTML = html;
+    }
+  </script>
+</body>
+</html>

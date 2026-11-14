@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KWA - Month Closing & Archival</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="kwa-core.js"></script>
+  <style>
+    :root {
+      --kwa-primary: #003366;
+      --kwa-secondary: #004d99;
+      --bg-page: #f1f5f9;
+      --card-bg: #ffffff;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --border-light: #e2e8f0;
+      --green-credit: #059669;
+      --red-debit: #dc2626;
+      --amber-warn: #d97706;
+    }
+    * { box-sizing: border-box; }
+    body { 
+      display: none; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      margin: 0; padding: 20px; background-color: var(--bg-page); color: var(--text-dark);
+      line-height: 1.5;
+    }
+    .container { max-width: 1120px; margin: 0 auto; }
+    .app-banner { 
+      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
+      color: #ffffff; padding: 18px 24px; border-radius: 10px; margin-bottom: 24px; 
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; 
+      box-shadow: 0 4px 12px rgba(0, 51, 102, 0.15);
+    }
+    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; }
+    .btn-nav-home { 
+      background-color: rgba(255, 255, 255, 0.15); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 8px 16px; font-size: 13px; border-radius: 6px; text-decoration: none; font-weight: 600; 
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); }
+    
+    .card { 
+      background: var(--card-bg); padding: 24px 28px; border-radius: 10px; 
+      border: 1px solid var(--border-light); box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 24px; 
+    }
+    .card h2 { 
+      color: var(--kwa-primary); margin-top: 0; font-size: 18px; 
+      border-bottom: 2px solid var(--border-light); padding-bottom: 12px; margin-bottom: 18px;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+    }
+
+    .info-box { 
+      background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px 20px; 
+      margin-bottom: 20px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+    }
+    .badge-month {
+      background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;
+      padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: 13px;
+    }
+
+    /* Balance Verification Table */
+    .table-wrap { overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 22px; }
+    table.bal-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; }
+    table.bal-table th, table.bal-table td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; padding: 10px 14px; text-align: left; }
+    table.bal-table th { background-color: #1e293b; color: #ffffff; font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    table.bal-table tbody tr:hover { background-color: #f8fafc; }
+    table.bal-table tr.total-row { background-color: #e2e8f0; font-weight: 700; font-size: 13.5px; }
+    
+    .num { text-align: right !important; font-variant-numeric: tabular-nums; font-family: 'Segoe UI Mono', monospace; }
+    .credit { color: var(--green-credit); font-weight: 600; }
+    .debit { color: var(--red-debit); font-weight: 600; }
+    .closing-val { font-weight: 700; color: var(--kwa-primary); }
+    .closing-val.neg { color: var(--red-debit); }
+
+    .cat-pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; background: #e2e8f0; color: #334155; }
+
+    .btn-close-month {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: none;
+      padding: 13px 24px; font-size: 15px; font-weight: 700; border-radius: 8px; cursor: pointer; width: 100%; 
+      transition: opacity 0.2s; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+    }
+    .btn-close-month:hover { opacity: 0.92; }
+
+    /* Rollback Card Styling */
+    .rollback-card { border-left: 5px solid var(--amber-warn); }
+    .rollback-status {
+      padding: 14px 16px; border-radius: 8px; font-size: 13.5px; margin-bottom: 16px;
+    }
+    .rollback-allowed { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .rollback-blocked { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+
+    .btn-rollback {
+      background-color: #d97706; color: #ffffff; border: none;
+      padding: 11px 20px; font-size: 14px; font-weight: 700; border-radius: 8px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px; transition: background-color 0.2s;
+    }
+    .btn-rollback:hover:not(:disabled) { background-color: #b45309; }
+    .btn-rollback:disabled { background-color: #cbd5e1; color: #64748b; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app-banner">
+      <div class="banner-left">
+        <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
+        <div style="font-size: 13px; opacity: 0.9; margin-top: 4px;">Month Closing, Balance Verification & Rollback Control</div>
+      </div>
+      <div>
+        <a href="index.html" class="btn-nav-home">🏠 Home</a>
+      </div>
+    </div>
+
+    <!-- SECTION 1: ACTIVE MONTH OPENING & CLOSING BALANCES -->
+    <div class="card">
+      <h2>
+        <span>Account Balances & Monthly Closing Statement</span>
+        <span class="badge-month" id="activeMonthBadge">Active Month: Loading...</span>
+      </h2>
+
+      <div class="info-box" id="activeMonthInfo">
+        Loading active month details...
+      </div>
+
+      <div class="table-wrap">
+        <table class="bal-table">
+          <thead>
+            <tr>
+              <th>Account Name</th>
+              <th>Category</th>
+              <th class="num">Opening Balance (₹)</th>
+              <th class="num">Month Receipts / CR (₹)</th>
+              <th class="num">Month Net Payments / DR (₹)</th>
+              <th class="num">Closing Balance (₹)</th>
+            </tr>
+          </thead>
+          <tbody id="balancesTableBody">
+            <tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">Calculating account balances...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 18px;">
+        <strong>Note:</strong> Closing balances shown above will be carried forward as the opening balances for the next accounting month (<strong id="nextMonthPreview">--</strong>). Ensure all CBV payments, CBR recoveries, and bank reconciliations for <strong id="currMonthText">--</strong> are entered before closing.
+      </p>
+
+      <button class="btn-close-month" onclick="confirmCloseMonth()">🔒 Close & Archive Active Month</button>
+    </div>
+
+    <!-- SECTION 2: SAFE ROLLBACK CONTROL -->
+    <div class="card rollback-card">
+      <h2>
+        <span>↩️ Rollback Previous Month Closing</span>
+        <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">Emergency Undo for Accidental Closing</span>
+      </h2>
+
+      <div id="rollbackContainer">
+        <p style="color: var(--text-muted); font-size: 13px;">Checking rollback eligibility...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    let currentOfficeId = '';
+    let currentOfficeSettings = null;
+    let computedAccounts = [];
+    let currentMonthTxnCount = 0;
+
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+    function formatINR(amount) {
+      const num = Number(amount) || 0;
+      return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function getNextMonthYear(monthYearStr) {
+      const [mName, yStr] = monthYearStr.split('-');
+      let mIdx = MONTH_NAMES.findIndex(m => m.toLowerCase() === mName.trim().toLowerCase());
+      let year = parseInt(yStr.trim(), 10);
+      mIdx++;
+      if (mIdx > 11) { mIdx = 0; year++; }
+      return `${MONTH_NAMES[mIdx]}-${year}`;
+    }
+
+    function getPrevMonthYear(monthYearStr) {
+      const [mName, yStr] = monthYearStr.split('-');
+      let mIdx = MONTH_NAMES.findIndex(m => m.toLowerCase() === mName.trim().toLowerCase());
+      let year = parseInt(yStr.trim(), 10);
+      mIdx--;
+      if (mIdx < 0) { mIdx = 11; year--; }
+      return `${MONTH_NAMES[mIdx]}-${year}`;
+    }
+
+    window.onload = async function() {
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      if (error || !session) { window.location.href = 'login.html'; return; }
+      currentOfficeId = session.user.id;
+
+      await loadClosingDashboard();
+    };
+
+    async function loadClosingDashboard() {
+      try {
+        const { data: officeSet, error: setErr } = await supabaseClient
+          .from('office_settings')
+          .select('*')
+          .eq('office_id', currentOfficeId)
+          .single();
+
+        if (!officeSet || setErr) { window.location.href = 'setup.html'; return; }
+
+        currentOfficeSettings = officeSet;
+        const activeMonth = officeSet.current_active_month;
+        const nextMonth = getNextMonthYear(activeMonth);
+        const prevMonth = getPrevMonthYear(activeMonth);
+
+        document.body.style.display = 'block';
+        document.getElementById('officeTitle').innerText = `${officeSet.office_name} (ARU: ${officeSet.aru_code})`;
+        document.getElementById('activeMonthBadge').innerText = `Active Month: ${activeMonth}`;
+        document.getElementById('currMonthText').innerText = activeMonth;
+        document.getElementById('nextMonthPreview').innerText = nextMonth;
+
+        // Fetch bank accounts and all transactions
+        const { data: banks } = await supabaseClient.from('bank_master').select('*').eq('office_id', currentOfficeId);
+        const { data: allTxns } = await supabaseClient.from('transactions').select('*').eq('office_id', currentOfficeId);
+
+        const txns = allTxns || [];
+        const activeMonthTxns = txns.filter(t => String(t.month_year || '').trim().toLowerCase() === activeMonth.toLowerCase());
+        currentMonthTxnCount = activeMonthTxns.length;
+
+        document.getElementById('activeMonthInfo').innerHTML = `
+          <div>
+            <strong>Office:</strong> ${officeSet.office_name} (ARU: ${officeSet.aru_code})<br>
+            <strong>Active Accounting Period:</strong> ${activeMonth}
+          </div>
+          <div style="text-align: right;">
+            <strong>Entries Recorded in ${activeMonth}:</strong> ${currentMonthTxnCount} transaction(s)<br>
+            <strong>Next Period Upon Closing:</strong> ${nextMonth}
+          </div>
+        `;
+
+        // Calculate Opening & Closing Balances for all accounts
+        computedAccounts = calculateAllAccountBalances(banks || [], txns, activeMonth, Number(officeSet.cash_opening_balance) || 0);
+        renderBalancesTable(computedAccounts);
+
+        // Evaluate Rollback Eligibility (Strictly allowed ONLY if current active month has 0 transactions)
+        renderRollbackSection(activeMonth, prevMonth, currentMonthTxnCount, txns);
+
+      } catch (err) {
+        Swal.fire('Error', 'Failed to load closing dashboard: ' + err.message, 'error');
+      }
+    }
+
+    /**
+     * Computes Opening Balance (up to start of activeMonth) and Closing Balance (at end of activeMonth)
+     * Uses exact net debit logic: Sum(CBV Payments) - Sum(Connected CBR Receipts)
+     */
+    function calculateAllAccountBalances(banks, allTxns, activeMonth, cashBase = 0) {
+      const results = [];
+
+      // Helper to compute credits & net debits for a subset of transactions
+      function computeNetFlow(subsetTxns, isCash) {
+        if (isCash) {
+          let cr = 0, dr = 0;
+          subsetTxns.forEach(t => {
+            const amt = Number(t.amount) || 0;
+            if ((t.type || '').trim().toLowerCase() === 'receipt') cr += amt;
+            else dr += amt;
+          });
+          return { credits: cr, debits: dr };
+        }
+
+        return KWA.netFlow(subsetTxns);
+      }
+
+      // 1. Cash Account
+      const cashPriorTxns = allTxns.filter(t => t.category === 'Cash' && String(t.month_year || '').trim().toLowerCase() !== activeMonth.toLowerCase());
+      const cashActiveTxns = allTxns.filter(t => t.category === 'Cash' && String(t.month_year || '').trim().toLowerCase() === activeMonth.toLowerCase());
+
+      const priorCashFlow = computeNetFlow(cashPriorTxns, true);
+      const activeCashFlow = computeNetFlow(cashActiveTxns, true);
+
+      const cashOpening = cashBase + priorCashFlow.credits - priorCashFlow.debits;
+      const cashClosing = cashOpening + activeCashFlow.credits - activeCashFlow.debits;
+
+      results.push({
+        nickname: 'Cash Account',
+        details: 'Cash Counter / Drawer',
+        category: 'Cash',
+        opening: cashOpening,
+        credits: activeCashFlow.credits,
+        debits: activeCashFlow.debits,
+        closing: cashClosing
+      });
+
+      // 2. Bank Accounts
+      banks.forEach(b => {
+        const bNick = (b.account_nickname || '').trim().toLowerCase();
+        const masterOpen = Number(b.opening_balance) || 0;
+
+        const bPriorTxns = allTxns.filter(t => 
+          t.bank_nickname && t.bank_nickname.trim().toLowerCase() === bNick &&
+          String(t.month_year || '').trim().toLowerCase() !== activeMonth.toLowerCase()
+        );
+        const bActiveTxns = allTxns.filter(t => 
+          t.bank_nickname && t.bank_nickname.trim().toLowerCase() === bNick &&
+          String(t.month_year || '').trim().toLowerCase() === activeMonth.toLowerCase()
+        );
+
+        const priorFlow = computeNetFlow(bPriorTxns, false);
+        const activeFlow = computeNetFlow(bActiveTxns, false);
+
+        const openBal = masterOpen + priorFlow.credits - priorFlow.debits;
+        const closeBal = openBal + activeFlow.credits - activeFlow.debits;
+
+        results.push({
+          nickname: b.account_nickname,
+          details: `${b.account_no} (${b.bank_name})`,
+          category: b.category || 'Bank',
+          opening: openBal,
+          credits: activeFlow.credits,
+          debits: activeFlow.debits,
+          closing: closeBal
+        });
+      });
+
+      return results;
+    }
+
+    function renderBalancesTable(accounts) {
+      const tbody = document.getElementById('balancesTableBody');
+      tbody.innerHTML = '';
+
+      let totOpen = 0, totCr = 0, totDr = 0, totClose = 0;
+
+      accounts.forEach(acc => {
+        totOpen += acc.opening;
+        totCr += acc.credits;
+        totDr += acc.debits;
+        totClose += acc.closing;
+
+        const closeClass = acc.closing < 0 ? 'closing-val neg' : 'closing-val';
+        tbody.innerHTML += `
+          <tr>
+            <td>
+              <strong>${esc(acc.nickname)}</strong><br>
+              <span style="font-size: 11px; color: var(--text-muted);">${esc(acc.details)}</span>
+            </td>
+            <td><span class="cat-pill">${acc.category}</span></td>
+            <td class="num">₹ ${formatINR(acc.opening)}</td>
+            <td class="num credit">₹ ${formatINR(acc.credits)}</td>
+            <td class="num debit">₹ ${formatINR(acc.debits)}</td>
+            <td class="num ${closeClass}">₹ ${formatINR(acc.closing)}</td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML += `
+        <tr class="total-row">
+          <td colspan="2">TOTAL CONSOLIDATED BALANCES</td>
+          <td class="num">₹ ${formatINR(totOpen)}</td>
+          <td class="num credit">₹ ${formatINR(totCr)}</td>
+          <td class="num debit">₹ ${formatINR(totDr)}</td>
+          <td class="num">₹ ${formatINR(totClose)}</td>
+        </tr>
+      `;
+    }
+
+    function renderRollbackSection(activeMonth, prevMonth, activeTxnCount, allTxns) {
+      const container = document.getElementById('rollbackContainer');
+
+      // Check if previous month even exists in transactions or if current month has transactions
+      const prevMonthTxns = allTxns.filter(t => String(t.month_year || '').trim().toLowerCase() === prevMonth.toLowerCase());
+
+      if (activeTxnCount > 0) {
+        container.innerHTML = `
+          <div class="rollback-status rollback-blocked">
+            <strong>🚫 Rollback Locked:</strong> The current active month (<strong>${activeMonth}</strong>) already contains <strong>${activeTxnCount} transaction(s)</strong>.<br>
+            Per accounting integrity rules, rolling back to <strong>${prevMonth}</strong> is strictly prohibited once entries have been posted in the new month.
+          </div>
+          <button class="btn-rollback" disabled>↩️ Rollback to ${prevMonth} (Disabled)</button>
+        `;
+      } else if (prevMonthTxns.length === 0) {
+        container.innerHTML = `
+          <div class="rollback-status rollback-blocked">
+            <strong>ℹ️ No Closed Previous Month Found:</strong> There are no archived records for <strong>${prevMonth}</strong> to roll back into.
+          </div>
+          <button class="btn-rollback" disabled>↩️ Rollback Unavailable</button>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="rollback-status rollback-allowed">
+            <strong>✅ Rollback Eligible:</strong> No transactions have been entered in <strong>${activeMonth}</strong> yet (0 entries).<br>
+            If <strong>${prevMonth}</strong> was closed by mistake, you may safely reopen it now.
+          </div>
+          <button class="btn-rollback" onclick="confirmRollback('${prevMonth}', '${activeMonth}')">↩️ Rollback Active Month to ${prevMonth}</button>
+        `;
+      }
+    }
+
+    async function confirmCloseMonth() {
+      const activeMonth = currentOfficeSettings.current_active_month;
+      const nextMonth = getNextMonthYear(activeMonth);
+
+      const negAccts = computedAccounts.filter(a => a.closing < 0).map(a => a.nickname);
+      const { value: confirmed } = await Swal.fire({
+        title: `Close & Archive ${activeMonth}?`,
+        html: `This will finalize all <strong>${currentMonthTxnCount}</strong> entries in <strong>${activeMonth}</strong>, carry forward all closing balances, and advance your active month to <strong>${nextMonth}</strong>.` + (negAccts.length ? `<br><br><b style="color:#dc2626">Warning: negative closing balance in ${negAccts.map(esc).join(', ')}</b>` : ''),
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#dc2626',
+        confirmButtonText: `Yes, Close ${activeMonth}`
+      });
+
+      if (!confirmed) return;
+
+      Swal.fire({ title: 'Closing Active Month...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      try {
+        // Snapshot closing balances of this month, then advance
+        await supabaseClient.from('monthly_closings').delete().eq('office_id', currentOfficeId).eq('month_year', activeMonth);
+        const { error: snapErr } = await supabaseClient.from('monthly_closings').insert(computedAccounts.map(a => ({
+          office_id: currentOfficeId, month_year: activeMonth, account_type: a.nickname === 'Cash Account' ? 'Cash' : a.nickname,
+          category: a.category, opening_balance: a.opening, total_receipts: a.credits, total_payments: a.debits, closing_balance: a.closing
+        })));
+        if (snapErr) throw snapErr;
+
+        const { error: updateErr } = await supabaseClient
+          .from('office_settings')
+          .update({ current_active_month: nextMonth })
+          .eq('office_id', currentOfficeId);
+
+        if (updateErr) throw updateErr;
+
+        Swal.fire({
+          title: 'Month Closed Successfully!',
+          text: `${activeMonth} has been archived. Active month is now ${nextMonth}.`,
+          icon: 'success'
+        }).then(() => {
+          loadClosingDashboard();
+        });
+      } catch (err) {
+        Swal.fire('Error', 'Failed to close month: ' + err.message, 'error');
+      }
+    }
+
+    async function confirmRollback(prevMonth, activeMonth) {
+      // Double-check live database count before executing rollback to prevent race conditions
+      Swal.fire({ title: 'Verifying New Month Entries...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      const { data: liveCheck, error: checkErr } = await supabaseClient
+        .from('transactions')
+        .select('txn_id')
+        .eq('office_id', currentOfficeId)
+        .eq('month_year', activeMonth);
+
+      Swal.close();
+
+      if (checkErr) {
+        Swal.fire('Error', 'Verification failed: ' + checkErr.message, 'error');
+        return;
+      }
+
+      if (liveCheck && liveCheck.length > 0) {
+        Swal.fire(
+          'Rollback Rejected',
+          `Cannot roll back because ${liveCheck.length} transaction(s) were detected in ${activeMonth}.`,
+          'error'
+        );
+        await loadClosingDashboard();
+        return;
+      }
+
+      const { value: confirmed } = await Swal.fire({
+        title: `Rollback to ${prevMonth}?`,
+        html: `Verified <strong>0 entries</strong> in ${activeMonth}.<br>Do you want to reopen <strong>${prevMonth}</strong> as your active Cash Book month?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#d97706',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: `Yes, Reopen ${prevMonth}`
+      });
+
+      if (!confirmed) return;
+
+      Swal.fire({ title: 'Rolling Back Month...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      try {
+        const { error: updateErr } = await supabaseClient
+          .from('office_settings')
+          .update({ current_active_month: prevMonth })
+          .eq('office_id', currentOfficeId);
+
+        if (updateErr) throw updateErr;
+        await supabaseClient.from('monthly_closings').delete().eq('office_id', currentOfficeId).eq('month_year', prevMonth);
+
+        Swal.fire({
+          title: 'Rollback Complete',
+          text: `Active accounting month has been restored to ${prevMonth}.`,
+          icon: 'success'
+        }).then(() => {
+          loadClosingDashboard();
+        });
+      } catch (err) {
+        Swal.fire('Error', 'Rollback failed: ' + err.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

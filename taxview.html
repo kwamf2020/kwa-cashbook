@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KWA - Statutory Tax Deduction Report</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="kwa-core.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --kwa-primary: #003366;
+      --kwa-secondary: #004d99;
+      --kwa-accent: #0ea5e9;
+      --bg-page: #f1f5f9;
+      --card-bg: #ffffff;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --border-light: #e2e8f0;
+      --green-credit: #059669;
+      --red-debit: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body { 
+      display: none; /* Hidden until auth verified */
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background-color: var(--bg-page); 
+      color: var(--text-dark);
+      line-height: 1.5;
+    }
+    .container { max-width: 1480px; margin: 0 auto; }
+    
+    /* Unified Modern Banner */
+    .app-banner { 
+      background: linear-gradient(135deg, var(--kwa-primary) 0%, var(--kwa-secondary) 100%); 
+      color: #ffffff; 
+      padding: 18px 24px; 
+      border-radius: 10px; 
+      margin-bottom: 20px; 
+      box-shadow: 0 4px 12px rgba(0, 51, 102, 0.15); 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      flex-wrap: wrap; 
+      gap: 12px; 
+    }
+    .banner-left h1 { margin: 0; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .banner-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+    .banner-subtitle { font-size: 13px; opacity: 0.9; font-weight: 500; }
+    .active-month-pill { 
+      background: rgba(255, 255, 255, 0.18); 
+      border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 2px 10px; 
+      border-radius: 999px; 
+      font-size: 12px; 
+      font-weight: 600; 
+    }
+    
+    /* Header Navigation Button */
+    .btn-nav-home { 
+      background-color: rgba(255, 255, 255, 0.15); 
+      color: #ffffff; 
+      border: 1px solid rgba(255, 255, 255, 0.35); 
+      padding: 8px 16px; 
+      font-size: 13px; 
+      border-radius: 6px; 
+      text-decoration: none; 
+      font-weight: 600; 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 6px; 
+      transition: all 0.2s ease; 
+      cursor: pointer; 
+    }
+    .btn-nav-home:hover { background-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
+
+    /* Controls Bar */
+    .controls-bar {
+      background: var(--card-bg);
+      padding: 14px 20px;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border: 1px solid var(--border-light);
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .controls-left, .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .controls-left label { font-size: 13px; font-weight: 600; color: #475569; }
+    .controls-left input[type="month"] {
+      padding: 7px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-dark);
+      background: #fff;
+    }
+
+    .btn { background-color: var(--kwa-primary); color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: background-color 0.2s; }
+    .btn:hover { background-color: #002244; }
+    .btn-excel { background-color: #059669; }
+    .btn-excel:hover { background-color: #047857; }
+    .btn-pdf { background-color: #7c3aed; }
+    .btn-pdf:hover { background-color: #6d28d9; }
+
+    /* Report Container Card */
+    .report-card {
+      background: var(--card-bg);
+      padding: 24px;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border: 1px solid var(--border-light);
+    }
+
+    .header-box {
+      text-align: center;
+      font-weight: 700;
+      margin-bottom: 18px;
+      line-height: 1.45;
+      color: #0f172a;
+    }
+    .header-box .org-title { font-size: 18px; letter-spacing: 0.5px; color: var(--kwa-primary); }
+    .header-box .office-sub { font-size: 15px; color: #1e293b; }
+    .header-box .report-title { font-size: 14px; text-transform: uppercase; margin-top: 2px; }
+    .header-box .tax-meta { font-weight: 500; font-size: 12.5px; color: #475569; margin-top: 4px; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #94a3b8;
+      border-radius: 6px;
+      margin-bottom: 24px;
+    }
+
+    table.tax-grid {
+      width: 100%;
+      min-width: 1280px;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: #fff;
+    }
+    table.tax-grid th, table.tax-grid td {
+      border: 1px solid #94a3b8;
+      padding: 5px 5px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    table.tax-grid th {
+      background-color: #1e293b;
+      color: #ffffff;
+      text-align: center;
+      font-weight: 600;
+      font-size: 10.5px;
+      vertical-align: middle;
+      padding: 7px 4px;
+    }
+    table.tax-grid td.text-left { text-align: left; }
+    .col-date { white-space: nowrap; min-width: 78px; text-align: center !important; }
+    .col-cbv { white-space: nowrap; text-align: center !important; font-weight: 600; }
+
+    .bank-header {
+      background-color: #e2e8f0 !important;
+      color: var(--kwa-primary);
+      font-weight: 700;
+      font-size: 12px;
+      text-align: left !important;
+      padding: 7px 10px !important;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .subtotal-row { background-color: #f8fafc; font-weight: 700; color: #0f172a; }
+    .grandtotal-row { background-color: #cbd5e1; font-weight: 700; font-size: 11.5px; color: #0f172a; }
+
+    /* Editable Grid Inputs */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+    input.grid-input {
+      width: 66px;
+      text-align: right;
+      border: 1px solid #cbd5e1;
+      font-size: 11px;
+      padding: 3px 4px;
+      border-radius: 3px;
+      font-family: 'Segoe UI Mono', monospace;
+      background-color: #fff;
+      transition: border-color 0.15s, background-color 0.15s;
+    }
+    input.grid-input:focus {
+      outline: none;
+      border-color: var(--kwa-primary);
+      background-color: #f0f9ff;
+    }
+
+    /* Account Summary Table */
+    .summary-section { margin-top: 24px; }
+    .summary-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--kwa-primary);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    table.summary-table {
+      width: 100%;
+      max-width: 820px;
+      border-collapse: collapse;
+      font-size: 12px;
+      border: 1px solid #94a3b8;
+    }
+    table.summary-table th, table.summary-table td {
+      border: 1px solid #94a3b8;
+      padding: 7px 10px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    table.summary-table th {
+      background-color: #1e293b;
+      color: #ffffff;
+      text-align: center;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    table.summary-table td.text-left { text-align: left; font-weight: 600; }
+
+    @media print {
+      @page { size: landscape; margin: 10mm; }
+      body { background: #fff; padding: 0; display: block !important; }
+      .container { max-width: 100%; }
+      .app-banner, .controls-bar { display: none !important; }
+      .report-card { border: none; box-shadow: none; padding: 0; }
+      .table-wrap { border: none; overflow: visible; }
+      table.tax-grid { min-width: 100%; font-size: 9.5px; }
+      table.tax-grid th { background-color: #e2e8f0 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+      table.summary-table th { background-color: #e2e8f0 !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+      input.grid-input { border: none; background: transparent; width: auto; padding: 0; font-size: 9.5px; }
+      .summary-table { width: 100%; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- TOP BANNER: ONLY HOME BUTTON IN HEADER -->
+    <div class="app-banner">
+      <div class="banner-left">
+        <h1 id="officeTitle">KERALA WATER AUTHORITY</h1>
+        <div class="banner-meta">
+          <span class="banner-subtitle">Statutory Tax Deduction Report</span>
+          <span class="active-month-pill" id="activeMonthDisplay">Active Month: Loading...</span>
+        </div>
+      </div>
+      <div>
+        <a href="index.html" class="btn-nav-home">🏠 Home</a>
+      </div>
+    </div>
+
+    <!-- FILTER & EXPORT CONTROLS -->
+    <div class="controls-bar">
+      <div class="controls-left">
+        <label for="monthPicker">Select Month:</label>
+        <input type="month" id="monthPicker">
+        <button class="btn" onclick="fetchReport()">🔄 Generate Report</button>
+      </div>
+      <div class="controls-right">
+        <button class="btn btn-excel" onclick="exportToExcel()">📊 Export to Excel</button>
+        <button class="btn btn-pdf" onclick="window.print()">🖨️ Print / Export PDF</button>
+      </div>
+    </div>
+
+    <!-- EXPORTABLE REPORT AREA -->
+    <div class="report-card" id="exportableArea">
+      <div class="header-box">
+        <div class="org-title">KERALA WATER AUTHORITY</div>
+        <div class="office-sub" id="reportOfficeName">PH DIVISION THIRUVALLA</div>
+        <div class="report-title">STATUTORY RECOVERIES FROM CONTRACTORS FOR THE MONTH OF <span id="displayMonth">--/----</span></div>
+        <div class="tax-meta">
+          Section code: 94C | TAN NO. TVDE00143D | GSTIN NO: 32TVDE00143D1DB
+        </div>
+      </div>
+
+      <div id="reportContainer">
+        <p style="text-align:center; padding: 30px; color: #64748b; font-style: italic;">Loading statutory tax records...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    let currentOfficeId = '';
+    let currentOfficeName = 'PH DIVISION THIRUVALLA';
+    let reportState = {};
+
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Prevent mouse wheel from accidentally altering focused number inputs
+    document.addEventListener('wheel', function(e) {
+      if (document.activeElement && document.activeElement.type === 'number') {
+        document.activeElement.blur();
+      }
+    }, { passive: false });
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function formatINR(num) {
+      return (Number(num) || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    // Converts "October-2026" -> "2026-10" for <input type="month">
+    function activeMonthToPickerVal(activeMonthStr) {
+      if (!activeMonthStr) return '';
+      const parts = activeMonthStr.split('-');
+      if (parts.length !== 2) return '';
+      const mIdx = MONTH_NAMES.findIndex(m => m.toLowerCase() === parts[0].trim().toLowerCase());
+      if (mIdx === -1) return '';
+      const mm = String(mIdx + 1).padStart(2, '0');
+      return `${parts[1].trim()}-${mm}`;
+    }
+
+    // Converts "2026-10" -> "October-2026" to match Supabase month_year column
+    function pickerValToDbMonthYear(pickerVal) {
+      if (!pickerVal) return '';
+      const parts = pickerVal.split('-');
+      if (parts.length !== 2) return '';
+      const yyyy = parts[0];
+      const mIdx = parseInt(parts[1], 10) - 1;
+      if (mIdx < 0 || mIdx > 11) return '';
+      return `${MONTH_NAMES[mIdx]}-${yyyy}`;
+    }
+
+    window.onload = async function() {
+      const { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
+      if (sessionErr || !session) {
+        window.location.href = 'login.html';
+        return;
+      }
+      currentOfficeId = session.user.id;
+
+      const { data: officeSet, error: setErr } = await supabaseClient
+        .from('office_settings')
+        .select('*')
+        .eq('office_id', currentOfficeId)
+        .single();
+
+      if (!officeSet || setErr) {
+        window.location.href = 'setup.html';
+        return;
+      }
+
+      document.body.style.display = 'block';
+      currentOfficeName = officeSet.office_name || 'PH DIVISION THIRUVALLA';
+      document.getElementById('officeTitle').innerText = `${currentOfficeName} (ARU: ${officeSet.aru_code})`;
+      document.getElementById('activeMonthDisplay').innerText = `Active Month: ${officeSet.current_active_month}`;
+      document.getElementById('reportOfficeName').innerText = currentOfficeName.toUpperCase();
+
+      // Default monthPicker to office's current_active_month
+      const pickerDefault = activeMonthToPickerVal(officeSet.current_active_month);
+      if (pickerDefault) {
+        document.getElementById('monthPicker').value = pickerDefault;
+      } else {
+        const now = new Date();
+        document.getElementById('monthPicker').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      await fetchReport();
+    };
+
+    async function fetchReport() {
+      const pickerVal = document.getElementById('monthPicker').value;
+      if (!pickerVal) return;
+
+      const [yyyy, mm] = pickerVal.split('-');
+      document.getElementById('displayMonth').innerText = `${mm}/${yyyy}`;
+      const targetDbMonthYear = pickerValToDbMonthYear(pickerVal);
+
+      Swal.fire({ title: 'Generating Tax Report...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      try {
+        // Fetch all transactions for this office & month from Supabase
+        const { data: txns, error } = await supabaseClient
+          .from('transactions')
+          .select('*')
+          .eq('office_id', currentOfficeId)
+          .eq('month_year', targetDbMonthYear)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        const groupedData = processTaxReportData(txns || []);
+        Swal.close();
+        renderReport(groupedData);
+      } catch (err) {
+        Swal.close();
+        Swal.fire('Error', 'Failed to generate tax report: ' + err.message, 'error');
+      }
+    }
+
+    /**
+     * Exact port of taxreport.gs getTaxReportData() logic for Supabase transactions schema
+     */
+    function processTaxReportData(txns) {
+      const targetAccounts = ['2841', '2835', '2895'];
+      const cbvMasterMap = {};
+      const cbrMap = {};
+
+      // --- STEP 1: Process CBV Payments ---
+      txns.forEach(row => {
+        const type = String(row.type || '').trim().toLowerCase();
+        const serialKey = String(row.serial_no || '').trim().toLowerCase();
+        if (!serialKey) return;
+
+        if (type === 'payment') {
+          const amt = parseFloat(row.amount) || 0;
+          const gst = parseFloat(row.gst_amount) || 0;
+
+          if (!cbvMasterMap[serialKey]) {
+            cbvMasterMap[serialKey] = {
+              date: String(row.date || '').trim(),
+              cbvNo: row.serial_no,
+              partyName: String(row.party_name || '').trim(),
+              description: String(row.description || '').trim(),
+              bankNickname: String(row.bank_nickname || row.category || 'Default').trim(),
+              grossAmount: amt,
+              gstAmount: gst
+            };
+          } else {
+            // Sum gross amount if a CBV has multiple line items
+            cbvMasterMap[serialKey].grossAmount += amt;
+            if (gst > 0 && cbvMasterMap[serialKey].gstAmount === 0) {
+              cbvMasterMap[serialKey].gstAmount = gst;
+            }
+          }
+        }
+      });
+
+      // --- STEP 2: Process CBR Receipts ---
+      txns.forEach(row => {
+        const type = String(row.type || '').trim().toLowerCase();
+        if (type === 'receipt') {
+          const cbrSerial = String(row.serial_no || '').trim();
+          if (!cbrSerial) return;
+
+          if (!cbrMap[cbrSerial]) {
+            cbrMap[cbrSerial] = {
+              date: String(row.date || '').trim(),
+              cbrSerial: cbrSerial,
+              linkedCbv: String(row.linked_cbv || '').trim(),
+              partyName: String(row.party_name || '').trim(),
+              description: String(row.description || '').trim(),
+              bankNickname: String(row.bank_nickname || row.category || 'Default').trim(),
+              gstAmount: parseFloat(row.gst_amount) || 0,
+              lineItems: []
+            };
+          }
+
+          let acCode = String(row.account_code || '').trim();
+          if (acCode.indexOf('.') !== -1) acCode = acCode.split('.')[0];
+
+          cbrMap[cbrSerial].lineItems.push({
+            accountCode: acCode,
+            amount: parseFloat(row.amount) || 0
+          });
+        }
+      });
+
+      // --- STEP 3: Build Grouped Report Data ---
+      const groupedData = {};
+      const grossUsed = {};
+
+      Object.values(cbrMap).forEach(cbr => {
+        const hasTaxAccount = cbr.lineItems.some(item => targetAccounts.includes(item.accountCode));
+        if (!hasTaxAccount) return;
+
+        const linkedKey = String(cbr.linkedCbv || '').trim().toLowerCase();
+        const parentCbv = cbvMasterMap[linkedKey] || {};
+
+        const dateStr = parentCbv.date || cbr.date;
+        const workDesc = parentCbv.description || cbr.description || '-';
+        const contractor = parentCbv.partyName || cbr.partyName || '-';
+        const bank = parentCbv.bankNickname || cbr.bankNickname || 'General';
+
+        // a CBV with several CBRs must count its gross/GST only once
+        const firstUse = !!linkedKey && !grossUsed[linkedKey];
+        if (linkedKey) grossUsed[linkedKey] = true;
+        const grossAmt = firstUse ? (parentCbv.grossAmount || 0) : 0;
+        const gstVal = parentCbv.gstAmount !== undefined ? (firstUse ? parentCbv.gstAmount : 0) : cbr.gstAmount;
+
+        let cgst = 0, sgst = 0, it = 0, kcwwf = 0, oAndM = 0, retention = 0, fine = 0, others = 0;
+        const gst2835Items = [];
+
+        cbr.lineItems.forEach(item => {
+          const code = item.accountCode;
+          const amt = item.amount;
+
+          if (code === '2835') gst2835Items.push(amt);
+          else if (code === '2841') it += amt;
+          else if (code === '2895') kcwwf += amt;
+          else if (code === '2729') oAndM += amt;
+          else if (code === '2724') retention += amt;
+          else if (code === '7211') fine += amt;
+          else others += amt;
+        });
+
+        if (gst2835Items.length >= 2) {
+          cgst = gst2835Items[0];
+          sgst = gst2835Items[1];
+        } else if (gst2835Items.length === 1) {
+          cgst = gst2835Items[0] / 2;
+          sgst = gst2835Items[0] / 2;
+        }
+
+        const totalRecoveries = cgst + sgst + it + kcwwf + oAndM + retention + fine + others;
+        const netAmt = grossAmt - totalRecoveries;
+        const amtWithoutGst = grossAmt - gstVal;
+
+        if (!groupedData[bank]) groupedData[bank] = [];
+
+        groupedData[bank].push({
+          date: dateStr,
+          work: workDesc,
+          contractor: contractor,
+          grossAmt: grossAmt,
+          gst: gstVal,
+          amtWithoutGst: amtWithoutGst,
+          igst: 0,
+          cgst: cgst,
+          sgst: sgst,
+          it: it,
+          kcwwf: kcwwf,
+          oAndM: oAndM,
+          retention: retention,
+          fine: fine,
+          others: others,
+          total: totalRecoveries,
+          netAmt: netAmt,
+          cbv: cbr.linkedCbv || '-'
+        });
+      });
+
+      return groupedData;
+    }
+
+    function renderReport(data) {
+      reportState = data;
+      const container = document.getElementById('reportContainer');
+      container.innerHTML = '';
+
+      if (Object.keys(data).length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding: 30px; color: #64748b; font-style: italic;">No matching CBR records found containing account codes 2841, 2835, or 2895 for this month.</p>';
+        return;
+      }
+
+      let grandTotals = { gross: 0, gst: 0, amtNoGst: 0, igst: 0, cgst: 0, sgst: 0, it: 0, kcwwf: 0, oAndM: 0, retention: 0, fine: 0, others: 0, total: 0, net: 0 };
+
+      let tableHtml = `
+        <div class="table-wrap">
+          <table class="tax-grid">
+            <thead>
+              <tr>
+                <th class="col-date">Date</th>
+                <th style="min-width: 180px;">Work</th>
+                <th style="min-width: 140px;">Contractor</th>
+                <th>Gross Amt.</th>
+                <th>GST</th>
+                <th>Amt without GST</th>
+                <th>IGST<br>(2835)</th>
+                <th>CGST<br>(2835)</th>
+                <th>SGST<br>(2835)</th>
+                <th>IT<br>(2841)</th>
+                <th>KCWWF<br>(2895)</th>
+                <th>O&amp;M<br>(2729)</th>
+                <th>Retention<br>(2724)</th>
+                <th>Fine<br>(7211)</th>
+                <th>Others</th>
+                <th>Total</th>
+                <th>Net Amnt</th>
+                <th>CBV</th>
+              </tr>
+            </thead>
+            <tbody>`;
+
+      let gIdx = -1;
+      for (const groupName in data) {
+        gIdx++;
+        const safeGroupAttr = escapeHtml(groupName).replace(/'/g, "\'");
+        tableHtml += `<tr><td colspan="18" class="bank-header">${escapeHtml(groupName)}</td></tr>`;
+        
+        let sub = { gross: 0, gst: 0, amtNoGst: 0, igst: 0, cgst: 0, sgst: 0, it: 0, kcwwf: 0, oAndM: 0, retention: 0, fine: 0, others: 0, total: 0, net: 0 };
+
+        data[groupName].forEach((row, idx) => {
+          sub.gross += row.grossAmt;
+          sub.gst += row.gst;
+          sub.amtNoGst += row.amtWithoutGst;
+          sub.igst += row.igst;
+          sub.cgst += row.cgst;
+          sub.sgst += row.sgst;
+          sub.it += row.it;
+          sub.kcwwf += row.kcwwf;
+          sub.oAndM += row.oAndM;
+          sub.retention += row.retention;
+          sub.fine += row.fine;
+          sub.others += row.others;
+          sub.total += row.total;
+          sub.net += row.netAmt;
+
+          tableHtml += `
+            <tr>
+              <td class="col-date">${escapeHtml(row.date)}</td>
+              <td class="text-left">${escapeHtml(row.work)}</td>
+              <td class="text-left">${escapeHtml(row.contractor)}</td>
+              <td><strong>${formatINR(row.grossAmt)}</strong></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.gst}" onchange="updateCell(${gIdx}, ${idx}, 'gst', this.value)"></td>
+              <td>${formatINR(row.amtWithoutGst)}</td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.igst}" onchange="updateCell(${gIdx}, ${idx}, 'igst', this.value)"></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.cgst}" onchange="updateCell(${gIdx}, ${idx}, 'cgst', this.value)"></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.sgst}" onchange="updateCell(${gIdx}, ${idx}, 'sgst', this.value)"></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.it}" onchange="updateCell(${gIdx}, ${idx}, 'it', this.value)"></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.kcwwf}" onchange="updateCell(${gIdx}, ${idx}, 'kcwwf', this.value)"></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.oAndM}" onchange="updateCell(${gIdx}, ${idx}, 'oAndM', this.value)"></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.retention}" onchange="updateCell(${gIdx}, ${idx}, 'retention', this.value)"></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.fine}" onchange="updateCell(${gIdx}, ${idx}, 'fine', this.value)"></td>
+              <td><input class="grid-input" type="number" step="0.01" value="${row.others}" onchange="updateCell(${gIdx}, ${idx}, 'others', this.value)"></td>
+              <td><strong>${formatINR(row.total)}</strong></td>
+              <td><strong>${formatINR(row.netAmt)}</strong></td>
+              <td class="col-cbv">${escapeHtml(row.cbv)}</td>
+            </tr>`;
+        });
+
+        tableHtml += `
+          <tr class="subtotal-row">
+            <td colspan="3" class="text-left">TOTAL (${escapeHtml(groupName)})</td>
+            <td>${formatINR(sub.gross)}</td>
+            <td>${formatINR(sub.gst)}</td>
+            <td>${formatINR(sub.amtNoGst)}</td>
+            <td>${formatINR(sub.igst)}</td>
+            <td>${formatINR(sub.cgst)}</td>
+            <td>${formatINR(sub.sgst)}</td>
+            <td>${formatINR(sub.it)}</td>
+            <td>${formatINR(sub.kcwwf)}</td>
+            <td>${formatINR(sub.oAndM)}</td>
+            <td>${formatINR(sub.retention)}</td>
+            <td>${formatINR(sub.fine)}</td>
+            <td>${formatINR(sub.others)}</td>
+            <td>${formatINR(sub.total)}</td>
+            <td>${formatINR(sub.net)}</td>
+            <td></td>
+          </tr>`;
+
+        for (let k in grandTotals) grandTotals[k] += sub[k];
+      }
+
+      tableHtml += `
+        <tr class="grandtotal-row">
+          <td colspan="3" class="text-left">GRAND TOTAL</td>
+          <td>${formatINR(grandTotals.gross)}</td>
+          <td>${formatINR(grandTotals.gst)}</td>
+          <td>${formatINR(grandTotals.amtNoGst)}</td>
+          <td>${formatINR(grandTotals.igst)}</td>
+          <td>${formatINR(grandTotals.cgst)}</td>
+          <td>${formatINR(grandTotals.sgst)}</td>
+          <td>${formatINR(grandTotals.it)}</td>
+          <td>${formatINR(grandTotals.kcwwf)}</td>
+          <td>${formatINR(grandTotals.oAndM)}</td>
+          <td>${formatINR(grandTotals.retention)}</td>
+          <td>${formatINR(grandTotals.fine)}</td>
+          <td>${formatINR(grandTotals.others)}</td>
+          <td>${formatINR(grandTotals.total)}</td>
+          <td>${formatINR(grandTotals.net)}</td>
+          <td></td>
+        </tr>
+      </tbody></table></div>`;
+
+      // --- ACCOUNT-WISE TAX DEDUCTION SUMMARY TABLE ---
+      tableHtml += `
+        <div class="summary-section">
+          <div class="summary-title">Account-wise Tax Deduction Summary</div>
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th class="text-left">Account Name</th>
+                <th>GST Amount<br>(IGST + CGST + SGST)</th>
+                <th>IT Amount<br>(2841)</th>
+                <th>KCWWF Amount<br>(2895)</th>
+                <th>Total Statutory Tax</th>
+              </tr>
+            </thead>
+            <tbody>`;
+
+      let summaryGrand = { gstTotal: 0, itTotal: 0, kcwwfTotal: 0, total: 0 };
+
+      for (const groupName in data) {
+        let accGst = 0, accIt = 0, accKcwwf = 0;
+
+        data[groupName].forEach(row => {
+          accGst += (row.igst + row.cgst + row.sgst);
+          accIt += row.it;
+          accKcwwf += row.kcwwf;
+        });
+
+        let rowSum = accGst + accIt + accKcwwf;
+        summaryGrand.gstTotal += accGst;
+        summaryGrand.itTotal += accIt;
+        summaryGrand.kcwwfTotal += accKcwwf;
+        summaryGrand.total += rowSum;
+
+        tableHtml += `
+          <tr>
+            <td class="text-left">${escapeHtml(groupName)}</td>
+            <td>${formatINR(accGst)}</td>
+            <td>${formatINR(accIt)}</td>
+            <td>${formatINR(accKcwwf)}</td>
+            <td><strong>${formatINR(rowSum)}</strong></td>
+          </tr>`;
+      }
+
+      tableHtml += `
+            <tr class="grandtotal-row">
+              <td class="text-left">TOTAL</td>
+              <td>${formatINR(summaryGrand.gstTotal)}</td>
+              <td>${formatINR(summaryGrand.itTotal)}</td>
+              <td>${formatINR(summaryGrand.kcwwfTotal)}</td>
+              <td>${formatINR(summaryGrand.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+
+      container.innerHTML = tableHtml;
+    }
+
+    function updateCell(group, index, field, value) {
+      const val = parseFloat(value) || 0;
+      const gName = typeof group === 'number' ? Object.keys(reportState)[group] : group;
+      const row = reportState[gName] && reportState[gName][index];
+      if (!row) return;
+      row[field] = val;
+
+      row.amtWithoutGst = row.grossAmt - row.gst;
+      row.total = row.igst + row.cgst + row.sgst + row.it + row.kcwwf + row.oAndM + row.retention + row.fine + row.others;
+      row.netAmt = row.grossAmt - row.total;
+
+      renderReport(reportState);
+    }
+
+    function exportToExcel() {
+      const clone = document.getElementById('exportableArea').cloneNode(true);
+      
+      // Replace editable input fields with plain numeric values for clean spreadsheet export
+      const inputs = clone.querySelectorAll('input');
+      inputs.forEach(input => {
+        const textNode = document.createTextNode(input.value);
+        input.parentNode.replaceChild(textNode, input);
+      });
+
+      const monthVal = document.getElementById('monthPicker').value || 'Report';
+      const htmlContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="utf-8">
+          <style>
+            table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+            th, td { border: 1px solid #000; padding: 5px; text-align: right; }
+            th { background-color: #f1f5f9; text-align: center; font-weight: bold; }
+            .text-left { text-align: left; }
+            .bank-header { background-color: #e2e8f0; font-weight: bold; text-align: left; }
+            .subtotal-row { background-color: #f8fafc; font-weight: bold; }
+            .grandtotal-row { background-color: #cbd5e1; font-weight: bold; }
+          </style>
+        </head>
+        <body>${clone.innerHTML}</body>
+        </html>`;
+
+      const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/vnd.ms-excel' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Tax_Deduction_Report_${monthVal}.xls`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
